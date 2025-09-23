@@ -4,35 +4,55 @@ import { useEffect, useState } from "react";
 import { Plus, Save, Pencil, Trash2, X } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
 
-
 export default function ClientesPage() {
   const [clientes, setClientes] = useState([]);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Carregar clientes do Supabase
+  // carregar clientes do barbeiro logado
   useEffect(() => {
     const fetchClientes = async () => {
-      const { data, error } = await supabase.from("clientes").select("*").order("created_at", { ascending: false });
-      if (error) console.error(error);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("user_id", user.id) // 🔥 pega só clientes do barbeiro logado
+        .order("created_at", { ascending: false });
+
+      if (error) console.error("Erro ao buscar clientes:", error);
       else setClientes(data);
+
+      setLoading(false);
     };
+
     fetchClientes();
   }, []);
 
-  // Salvar ou atualizar cliente
+  // salvar ou atualizar cliente
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!nome || !telefone) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Você precisa estar logado para adicionar clientes.");
+      return;
+    }
+
     if (editingId) {
+      // atualizar cliente existente
       const { error } = await supabase
         .from("clientes")
         .update({ nome, telefone, email })
-        .eq("id", editingId);
-      if (error) console.error(error);
+        .eq("id", editingId)
+        .eq("user_id", user.id); // 🔥 garante que só atualiza os do barbeiro logado
+
+      if (error) console.error("Erro ao atualizar cliente:", error);
       else {
         setClientes((prev) =>
           prev.map((c) =>
@@ -42,11 +62,13 @@ export default function ClientesPage() {
         setEditingId(null);
       }
     } else {
+      // inserir novo cliente
       const { data, error } = await supabase
         .from("clientes")
-        .insert([{ nome, telefone, email }])
+        .insert([{ nome, telefone, email, user_id: user.id }])
         .select();
-      if (error) console.error(error);
+
+      if (error) console.error("Erro ao adicionar cliente:", error);
       else setClientes((prev) => [...data, ...prev]);
     }
 
@@ -59,7 +81,7 @@ export default function ClientesPage() {
     setEditingId(c.id);
     setNome(c.nome);
     setTelefone(c.telefone);
-    setEmail(c.email);
+    setEmail(c.email || "");
   };
 
   const cancelEdit = () => {
@@ -71,8 +93,17 @@ export default function ClientesPage() {
 
   const removeCliente = async (id) => {
     if (!confirm("Deseja remover este cliente?")) return;
-    const { error } = await supabase.from("clientes").delete().eq("id", id);
-    if (error) console.error(error);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("clientes")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id); // 🔥 só deleta se for dono
+
+    if (error) console.error("Erro ao remover cliente:", error);
     else setClientes((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -127,39 +158,46 @@ export default function ClientesPage() {
       {/* Lista de clientes */}
       <div className="bg-gray-900 p-4 rounded-lg">
         <h2 className="text-lg font-bold mb-4">Lista de Clientes</h2>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-gray-700">
-              <th className="p-2">Nome</th>
-              <th className="p-2">Telefone</th>
-              <th className="p-2">Email</th>
-              <th className="p-2">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientes.map((c) => (
-              <tr key={c.id} className="border-b border-gray-700">
-                <td className="p-2">{c.nome}</td>
-                <td className="p-2">{c.telefone}</td>
-                <td className="p-2">{c.email}</td>
-                <td className="p-2 flex gap-2">
-                  <button
-                    onClick={() => startEdit(c)}
-                    className="text-blue-400 hover:text-blue-600"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => removeCliente(c.id)}
-                    className="text-red-400 hover:text-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </td>
+
+        {loading ? (
+          <p className="text-gray-400">Carregando clientes...</p>
+        ) : clientes.length === 0 ? (
+          <p className="text-gray-400">Nenhum cliente cadastrado ainda.</p>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="p-2">Nome</th>
+                <th className="p-2">Telefone</th>
+                <th className="p-2">Email</th>
+                <th className="p-2">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {clientes.map((c) => (
+                <tr key={c.id} className="border-b border-gray-700">
+                  <td className="p-2">{c.nome}</td>
+                  <td className="p-2">{c.telefone}</td>
+                  <td className="p-2">{c.email}</td>
+                  <td className="p-2 flex gap-2">
+                    <button
+                      onClick={() => startEdit(c)}
+                      className="text-blue-400 hover:text-blue-600"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => removeCliente(c.id)}
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

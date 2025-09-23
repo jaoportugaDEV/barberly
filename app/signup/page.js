@@ -1,12 +1,13 @@
 "use client";
+
 import { useState } from "react";
-import supabase from "../../lib/supabaseClient"; // ✅ agora import correto
 import { useRouter } from "next/navigation";
+import supabase from "../../lib/supabaseClient";
 
 export default function SignupPage() {
-  const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [nome, setNome] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
 
@@ -18,13 +19,14 @@ export default function SignupPage() {
       email,
       password: senha,
       options: {
-        data: { nome },
+        data: { name: nome }, // 🔥 manda o nome pros metadados → trigger usa pra criar profiles
       },
     });
 
     if (error) {
       setError(error.message);
     } else {
+      router.refresh();
       router.push("/dashboard");
     }
   };
@@ -90,7 +92,7 @@ export default function SignupPage() {
             type="submit"
             className="w-full py-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold rounded-lg transition duration-200"
           >
-            Cadastrar
+            Criar Conta
           </button>
         </form>
 

@@ -3,21 +3,32 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
+import Link from "next/link";
 import {
+  LayoutDashboard,
   Calendar,
-  Users,
   DollarSign,
+  Building2,
+  Users,
+  Scissors,
   Settings,
   LogOut,
-  Building2,
 } from "lucide-react";
-import Link from "next/link";
 
-export default function DashboardLayout({ children }) {
+const nav = [
+  { name: "Dashboard", path: "/dono", icon: LayoutDashboard },
+  { name: "Agenda", path: "/dono/agenda", icon: Calendar },
+  { name: "Financeiro", path: "/dono/financeiro", icon: DollarSign },
+  { name: "Barbearias", path: "/dono/barbearias", icon: Building2 },
+  { name: "Barbeiros", path: "/dono/barbeiros", icon: Users },
+  { name: "Serviços", path: "/dono/servicos", icon: Scissors },
+  { name: "Configurações", path: "/dono/configuracoes", icon: Settings },
+];
+
+export default function DonoLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState(null);
-  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -26,16 +37,6 @@ export default function DashboardLayout({ children }) {
         router.push("/login");
       } else {
         setUser(data.user);
-
-        // verifica se o usuário é dono de alguma barbearia
-        const { data: barbearias } = await supabase
-          .from("barbearias")
-          .select("id")
-          .eq("dono_id", data.user.id);
-
-        if (barbearias && barbearias.length > 0) {
-          setIsOwner(true);
-        }
       }
     };
     checkUser();
@@ -46,28 +47,11 @@ export default function DashboardLayout({ children }) {
     router.push("/login");
   };
 
-  // navegação base
-  const nav = [
-    { name: "Agenda", path: "/dashboard", icon: Calendar },
-    { name: "Clientes", path: "/dashboard/clientes", icon: Users },
-    { name: "Financeiro", path: "/dashboard/financeiro", icon: DollarSign },
-    { name: "Configurações", path: "/dashboard/configuracoes", icon: Settings },
-  ];
-
-  // adiciona o menu do dono, se for dono
-  if (isOwner) {
-    nav.push({
-      name: "Dashboard do Dono",
-      path: "/dashboard/dono",
-      icon: Building2,
-    });
-  }
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-950 border-r border-yellow-600 p-6 flex flex-col">
-        <h1 className="text-2xl font-bold text-yellow-500 mb-2">Barberly</h1>
+        <h1 className="text-2xl font-bold text-yellow-500 mb-2">Barberly Dono</h1>
         {user && (
           <p className="text-gray-400 mb-6">
             Bem-vindo,{" "}
@@ -83,7 +67,7 @@ export default function DashboardLayout({ children }) {
               key={path}
               href={path}
               className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
-                pathname === path
+                pathname.startsWith(path)
                   ? "bg-yellow-600 text-black font-semibold"
                   : "text-gray-300 hover:bg-gray-800 hover:text-yellow-400"
               }`}

@@ -1,27 +1,60 @@
 "use client";
+
 import { useState } from "react";
-import supabase from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import supabase from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
-    });
+    try {
+      console.log("➡️ Iniciando login…", { email });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push("/dashboard");
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
+
+      console.log("🔎 Resposta do Supabase:", { data, error });
+
+      if (error) {
+        console.error("❌ Erro no login:", error);
+        setError(error.message || "Falha ao entrar.");
+        return;
+      }
+
+      if (!data?.user) {
+        console.error("⚠️ Login sem user retornado:", data);
+        setError("Erro inesperado: usuário não retornado.");
+        return;
+      }
+
+      // (opcional) conferir sessão imediatamente
+      const { data: sess } = await supabase.auth.getSession();
+      console.log("🟢 Sessão atual:", sess);
+
+      // força re-render pra middleware/SSR capturar os cookies da sessão
+      router.refresh();
+
+      // pequena folga pra cookie aplicar (evita “refresh e nada acontece”)
+      await new Promise((r) => setTimeout(r, 150));
+
+      console.log("➡️ Redirecionando para /dashboard…");
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error("💥 Exceção no handleLogin:", err);
+      setError("Ocorreu um erro inesperado ao entrar.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,9 +103,14 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full py-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold rounded-lg transition duration-200"
+            disabled={loading}
+            className={`w-full py-2 text-black font-semibold rounded-lg transition duration-200 ${
+              loading
+                ? "bg-yellow-700 opacity-70 cursor-not-allowed"
+                : "bg-yellow-600 hover:bg-yellow-700"
+            }`}
           >
-            Entrar
+            {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
 
