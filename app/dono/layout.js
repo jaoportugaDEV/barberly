@@ -13,7 +13,8 @@ import {
   Scissors,
   Settings,
   LogOut,
-} from "lucide-react";
+  Contact,
+} from "lucide-react"; // 👈 vou usar Contact para Clientes
 
 const nav = [
   { name: "Dashboard", path: "/dono", icon: LayoutDashboard },
@@ -21,6 +22,7 @@ const nav = [
   { name: "Financeiro", path: "/dono/financeiro", icon: DollarSign },
   { name: "Barbearias", path: "/dono/barbearias", icon: Building2 },
   { name: "Barbeiros", path: "/dono/barbeiros", icon: Users },
+  { name: "Clientes", path: "/dono/clientes", icon: Contact }, // 👈 novo item
   { name: "Serviços", path: "/dono/servicos", icon: Scissors },
   { name: "Configurações", path: "/dono/configuracoes", icon: Settings },
 ];

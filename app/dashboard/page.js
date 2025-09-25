@@ -23,7 +23,9 @@ export default function DashboardPage() {
   const [status, setStatus] = useState("confirmado");
 
   const [barberId, setBarberId] = useState(null);
-  const [barbeariaId, setBarbeariaId] = useState(null); // <-- nova state
+  const [barbeariaId, setBarbeariaId] = useState(null);
+
+  const [range, setRange] = useState("today"); // "today" | "week"
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,7 +35,6 @@ export default function DashboardPage() {
       if (user) {
         setBarberId(user.id);
 
-        // buscar a barbearia do barbeiro
         const { data: prof } = await supabase
           .from("profiles")
           .select("barbearia_id")
@@ -52,19 +53,29 @@ export default function DashboardPage() {
     const fetchData = async () => {
       if (!barberId) return;
 
-      const { data: appts } = await supabase
+      let query = supabase
         .from("appointments")
         .select("id, starts_at, status, user_id, service_id")
         .eq("barber_id", barberId)
         .order("starts_at", { ascending: true });
 
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, name, phone, role");
+      // filtro de range (hoje ou semana)
+      const now = new Date();
+      let start, end;
+      if (range === "today") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(start);
+        end.setDate(end.getDate() + 1);
+      } else {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(start);
+        end.setDate(end.getDate() + 7);
+      }
+      query = query.gte("starts_at", start.toISOString()).lt("starts_at", end.toISOString());
 
-      const { data: servs } = await supabase
-        .from("services")
-        .select("id, name");
+      const { data: appts } = await query;
+      const { data: profs } = await supabase.from("profiles").select("id, name, phone, role");
+      const { data: servs } = await supabase.from("services").select("id, name");
 
       setAppointments(appts || []);
       setProfiles(profs || []);
@@ -72,7 +83,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, [barberId]);
+  }, [barberId, range]);
 
   const novoAgendamento = () => {
     setEditingId(null);
@@ -93,7 +104,7 @@ export default function DashboardPage() {
       starts_at: startsAt,
       status,
       barber_id: barberId,
-      barbearia_id: barbeariaId, // <-- garante que fica vinculado à barbearia
+      barbearia_id: barbeariaId,
     };
 
     if (editingId) {
@@ -104,6 +115,7 @@ export default function DashboardPage() {
 
     setShowModal(false);
 
+    // recarregar
     const { data: appts } = await supabase
       .from("appointments")
       .select("id, starts_at, status, user_id, service_id")
@@ -130,14 +142,25 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">Agenda</h1>
+      <h1 className="text-3xl font-bold text-yellow-500 mb-6">Minha Agenda</h1>
 
-      <button
-        onClick={novoAgendamento}
-        className="mb-6 flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
-      >
-        <Plus size={18} /> Novo Agendamento
-      </button>
+      {/* Filtro Hoje / Semana */}
+      <div className="flex items-center gap-4 mb-6">
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+        >
+          <option value="today">Hoje</option>
+          <option value="week">Semana</option>
+        </select>
+        <button
+          onClick={novoAgendamento}
+          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
+        >
+          <Plus size={18} /> Novo Agendamento
+        </button>
+      </div>
 
       <div className="space-y-3">
         {appointments.map((a) => {
@@ -153,7 +176,7 @@ export default function DashboardPage() {
                 <p className="font-bold">{cliente?.name || "Cliente"}</p>
                 <p className="text-sm opacity-80">
                   {servico?.name || "Serviço"} —{" "}
-                  {new Date(a.starts_at).toLocaleString()}
+                  {new Date(a.starts_at).toLocaleString("pt-PT")}
                 </p>
                 <p className="text-xs italic">{a.status}</p>
               </div>

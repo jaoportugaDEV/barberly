@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 
-export default function ServicosPage() {
-  const searchParams = useSearchParams();
-  const barbeariaId = searchParams.get("barbeariaId");
-
+export default function DonoServicosPage() {
   const [servicos, setServicos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
@@ -25,10 +21,10 @@ export default function ServicosPage() {
     const { data, error } = await supabase
       .from("services")
       .select("id, name, price, duration_minutes, created_at")
-      .eq("barbearia_id", barbeariaId)
       .order("created_at", { ascending: false });
 
     if (error) {
+      console.error("Erro ao carregar serviços:", error);
       setMsg("❌ Erro ao carregar serviços");
     } else {
       setServicos(data || []);
@@ -37,8 +33,8 @@ export default function ServicosPage() {
   };
 
   useEffect(() => {
-    if (barbeariaId) fetchServicos();
-  }, [barbeariaId]);
+    fetchServicos();
+  }, []);
 
   // salvar serviço (criar ou editar)
   const handleSave = async (e) => {
@@ -57,10 +53,10 @@ export default function ServicosPage() {
           price,
           duration_minutes: duration,
         })
-        .eq("id", editingId)
-        .eq("barbearia_id", barbeariaId);
+        .eq("id", editingId);
 
       if (error) {
+        console.error("Erro ao atualizar serviço:", error);
         setMsg("❌ Erro ao atualizar serviço");
       } else {
         setMsg("✅ Serviço atualizado com sucesso!");
@@ -74,7 +70,6 @@ export default function ServicosPage() {
       // insert
       const { error } = await supabase.from("services").insert([
         {
-          barbearia_id: barbeariaId,
           name,
           price,
           duration_minutes: duration,
@@ -82,6 +77,7 @@ export default function ServicosPage() {
       ]);
 
       if (error) {
+        console.error("Erro ao criar serviço:", error);
         setMsg("❌ Erro ao criar serviço");
       } else {
         setMsg("✅ Serviço criado com sucesso!");
@@ -96,23 +92,16 @@ export default function ServicosPage() {
   // excluir serviço
   const handleDelete = async (id) => {
     if (!confirm("Tem certeza que deseja excluir este serviço?")) return;
-    const { error } = await supabase
-      .from("services")
-      .delete()
-      .eq("id", id)
-      .eq("barbearia_id", barbeariaId);
+    const { error } = await supabase.from("services").delete().eq("id", id);
 
     if (error) {
+      console.error("Erro ao excluir serviço:", error);
       setMsg("❌ Erro ao excluir serviço");
     } else {
       setMsg("✅ Serviço excluído!");
       fetchServicos();
     }
   };
-
-  if (!barbeariaId) {
-    return <p className="text-red-400">❌ Nenhuma barbearia selecionada.</p>;
-  }
 
   return (
     <div>
