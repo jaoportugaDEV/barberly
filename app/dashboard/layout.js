@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   Building2,
+  Menu,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -18,6 +20,7 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -27,7 +30,6 @@ export default function DashboardLayout({ children }) {
       } else {
         setUser(data.user);
 
-        // verifica se o usuário é dono de alguma barbearia
         const { data: barbearias } = await supabase
           .from("barbearias")
           .select("id")
@@ -46,7 +48,6 @@ export default function DashboardLayout({ children }) {
     router.push("/login");
   };
 
-  // navegação base
   const nav = [
     { name: "Agenda", path: "/dashboard", icon: Calendar },
     { name: "Clientes", path: "/dashboard/clientes", icon: Users },
@@ -54,7 +55,6 @@ export default function DashboardLayout({ children }) {
     { name: "Configurações", path: "/dashboard/configuracoes", icon: Settings },
   ];
 
-  // adiciona o menu do dono, se for dono
   if (isOwner) {
     nav.push({
       name: "Dashboard do Dono",
@@ -65,8 +65,8 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-950 border-r border-yellow-600 p-6 flex flex-col">
+      {/* Sidebar Desktop */}
+      <aside className="hidden md:flex w-64 bg-gray-950 border-r border-yellow-600 p-6 flex-col">
         <h1 className="text-2xl font-bold text-yellow-500 mb-2">Barberly</h1>
         {user && (
           <p className="text-gray-400 mb-6">
@@ -102,8 +102,62 @@ export default function DashboardLayout({ children }) {
         </button>
       </aside>
 
+      {/* Sidebar Mobile */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="w-64 bg-gray-950 border-r border-yellow-600 p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-xl font-bold text-yellow-500">Barberly</h1>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            <nav className="flex-1 space-y-2">
+              {nav.map(({ name, path, icon: Icon }) => (
+                <Link
+                  key={path}
+                  href={path}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
+                    pathname === path
+                      ? "bg-yellow-600 text-black font-semibold"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-yellow-400"
+                  }`}
+                >
+                  <Icon size={18} />
+                  {name}
+                </Link>
+              ))}
+            </nav>
+            <button
+              onClick={handleLogout}
+              className="mt-auto flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition"
+            >
+              <LogOut size={18} /> Sair
+            </button>
+          </div>
+          <div
+            className="flex-1 bg-black/50"
+            onClick={() => setOpen(false)}
+          ></div>
+        </div>
+      )}
+
       {/* Conteúdo */}
-      <main className="flex-1 p-10">{children}</main>
+      <main className="flex-1 p-6">
+        {/* Topbar mobile */}
+        <div className="flex items-center justify-between mb-6 md:hidden">
+          <h1 className="text-xl font-bold text-yellow-500">Barberly</h1>
+          <button
+            onClick={() => setOpen(true)}
+            className="text-gray-300 hover:text-white"
+          >
+            <Menu size={28} />
+          </button>
+        </div>
+
+        {children}
+      </main>
     </div>
   );
 }

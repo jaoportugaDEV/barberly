@@ -21,6 +21,11 @@ export default function AgendaPage() {
   const [msg, setMsg] = useState("");
   const [donoId, setDonoId] = useState(null);
 
+  // Modal edição
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedAppt, setSelectedAppt] = useState(null);
+  const [newStatus, setNewStatus] = useState("pendente");
+
   // pega dono
   useEffect(() => {
     (async () => {
@@ -130,6 +135,14 @@ export default function AgendaPage() {
 
   async function marcarComoConcluido(id) {
     await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
+    fetchAgendamentos(clientes.map((c) => c.id));
+  }
+
+  async function atualizarStatus() {
+    if (!selectedAppt) return;
+    await supabase.from("appointments").update({ status: newStatus }).eq("id", selectedAppt.id);
+    setModalOpen(false);
+    setSelectedAppt(null);
     fetchAgendamentos(clientes.map((c) => c.id));
   }
 
@@ -268,8 +281,8 @@ export default function AgendaPage() {
                     {a.service_nome} {a.service_price ? `(€${a.service_price})` : ""}
                   </td>
                   <td className="p-3">{a.barbearia_nome}</td>
-                  <td className="p-3">
-                    {a.status !== "concluido" && (
+                  <td className="p-3 flex gap-2">
+                    {a.status !== "concluido" && a.status !== "cancelado" && (
                       <button
                         onClick={() => marcarComoConcluido(a.id)}
                         className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-white shadow-md transition"
@@ -277,6 +290,16 @@ export default function AgendaPage() {
                         ✅ Concluir
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        setSelectedAppt(a);
+                        setNewStatus(a.status);
+                        setModalOpen(true);
+                      }}
+                      className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-lg text-white shadow-md transition"
+                    >
+                      ✏️ Editar
+                    </button>
                   </td>
                 </tr>
               ))
@@ -290,6 +313,41 @@ export default function AgendaPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+          <div className="bg-gray-900 rounded-xl p-6 w-96 shadow-xl border border-gray-700">
+            <h2 className="text-lg font-bold text-yellow-400 mb-4">
+              Editar Status do Agendamento
+            </h2>
+            <select
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              className="w-full p-3 mb-4 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500"
+            >
+              <option value="pendente">Pendente</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="cancelado">Cancelado</option>
+              <option value="concluido">Concluído</option>
+            </select>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={atualizarStatus}
+                className="px-4 py-2 bg-yellow-600 text-black font-semibold rounded-lg hover:bg-yellow-700 transition"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

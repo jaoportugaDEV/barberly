@@ -102,7 +102,9 @@ export default function BarbeirosPage() {
 
   return (
     <div className="p-6 text-white">
-      <h1 className="text-3xl font-bold mb-6">Gerenciar Barbeiros</h1>
+      <h1 className="text-3xl font-extrabold mb-6 bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+        Gerenciar Barbeiros
+      </h1>
 
       {/* Seleção da Barbearia */}
       <div className="mb-6">
@@ -122,8 +124,8 @@ export default function BarbeirosPage() {
       </div>
 
       {/* Formulário */}
-      <div className="bg-gray-800 p-6 rounded-xl shadow-md mb-8">
-        <h2 className="text-xl font-semibold mb-4">
+      <div className="backdrop-blur-md bg-gray-800/60 p-6 rounded-2xl shadow-lg border border-gray-700/50 mb-8">
+        <h2 className="text-xl font-semibold mb-4 text-yellow-400">
           {editingId ? "Editar Barbeiro" : "Cadastrar Novo Barbeiro"}
         </h2>
         <div className="space-y-3">
@@ -157,7 +159,7 @@ export default function BarbeirosPage() {
           />
           <button
             onClick={handleSave}
-            className="bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-lg w-full font-semibold transition"
+            className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 px-4 py-3 rounded-lg w-full font-semibold shadow-md hover:scale-[1.02] transition"
           >
             {editingId ? "Salvar Alterações" : "Criar Barbeiro"}
           </button>
@@ -166,19 +168,19 @@ export default function BarbeirosPage() {
 
       {/* Lista */}
       <h2 className="text-xl font-semibold mb-3">Lista de Barbeiros</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full border border-gray-700 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto rounded-xl shadow-lg border border-gray-700/50">
+        <table className="w-full text-left">
           <thead>
-            <tr className="bg-gray-700 text-left">
+            <tr className="bg-gradient-to-r from-gray-700 to-gray-800 text-yellow-400">
               <th className="p-3">Nome</th>
               <th className="p-3">Telefone</th>
               <th className="p-3">E-mail</th>
               <th className="p-3 text-center">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-700">
             {barbeiros.map((b) => (
-              <tr key={b.id} className="border-t border-gray-600 hover:bg-gray-800">
+              <tr key={b.id} className="hover:bg-gray-800/50 transition">
                 <td className="p-3">{b.name}</td>
                 <td className="p-3">{b.phone}</td>
                 <td className="p-3">{b.email}</td>
