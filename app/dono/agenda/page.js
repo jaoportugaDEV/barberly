@@ -9,28 +9,37 @@ export default function AgendaPage() {
   const [servicos, setServicos] = useState([]);
   const [barbearias, setBarbearias] = useState([]);
 
-  // form states
-  const [clienteId, setClienteId] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [barbeariaId, setBarbeariaId] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [status, setStatus] = useState("pendente");
+  const [novoAgendamento, setNovoAgendamento] = useState({
+    cliente_id: "",
+    service_id: "",
+    barbearia_id: "",
+    starts_at: "",
+    status: "pendente",
+  });
 
   const [msg, setMsg] = useState("");
 
-  // Buscar agendamentos com join
-  const fetchAgendamentos = async () => {
+  // Buscar dados iniciais
+  useEffect(() => {
+    fetchAgendamentos();
+    fetchClientes();
+    fetchServicos();
+    fetchBarbearias();
+  }, []);
+
+  async function fetchAgendamentos() {
     const { data, error } = await supabase
       .from("appointments")
-      .select(`
+      .select(
+        `
         id,
         starts_at,
         status,
-        clientes: user_id ( nome ),
-        services: service_id ( name ),
-        barbearias: barbearia_id ( nome ),
-        profiles: barber_id ( name )
-      `)
+        clientes (nome),
+        services (name, price),
+        barbearias (nome)
+      `
+      )
       .order("starts_at", { ascending: true });
 
     if (error) {
@@ -39,43 +48,50 @@ export default function AgendaPage() {
     } else {
       setAgendamentos(data || []);
     }
-  };
+  }
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const { data: cli } = await supabase.from("clientes").select("id, nome");
-      setClientes(cli || []);
+  async function fetchClientes() {
+    const { data, error } = await supabase
+      .from("clientes")
+      .select("id, nome, email");
+    if (error) console.error("❌ Erro ao buscar clientes:", error);
+    else setClientes(data || []);
+  }
 
-      const { data: serv } = await supabase.from("services").select("id, name");
-      setServicos(serv || []);
+  async function fetchServicos() {
+    const { data, error } = await supabase
+      .from("services")
+      .select("id, name, price");
+    if (error) console.error("❌ Erro ao buscar serviços:", error);
+    else setServicos(data || []);
+  }
 
-      const { data: barbs } = await supabase
-        .from("barbearias")
-        .select("id, nome");
-      setBarbearias(barbs || []);
+  async function fetchBarbearias() {
+    const { data, error } = await supabase
+      .from("barbearias")
+      .select("id, nome");
+    if (error) console.error("❌ Erro ao buscar barbearias:", error);
+    else setBarbearias(data || []);
+  }
 
-      fetchAgendamentos();
-    };
-    fetchData();
-  }, []);
-
-  // Salvar agendamento
-  const handleSave = async () => {
-    setMsg("");
-    if (!clienteId || !serviceId || !barbeariaId || !startsAt) {
-      setMsg("❌ Preencha todos os campos.");
+  async function handleSave() {
+    if (
+      !novoAgendamento.cliente_id ||
+      !novoAgendamento.service_id ||
+      !novoAgendamento.barbearia_id ||
+      !novoAgendamento.starts_at
+    ) {
+      setMsg("❌ Preencha todos os campos!");
       return;
     }
 
     const { error } = await supabase.from("appointments").insert([
       {
-        user_id: clienteId,
-        service_id: serviceId,
-        barbearia_id: barbeariaId,
-        starts_at: startsAt,
-        status,
-        // 🔹 NÃO pede barbeiro, já vai nulo ou será setado quando for um barbeiro logado
-        barber_id: null,
+        user_id: novoAgendamento.cliente_id,
+        service_id: novoAgendamento.service_id,
+        barbearia_id: novoAgendamento.barbearia_id,
+        starts_at: novoAgendamento.starts_at,
+        status: novoAgendamento.status,
       },
     ]);
 
@@ -84,25 +100,27 @@ export default function AgendaPage() {
       setMsg("❌ Erro ao salvar agendamento.");
     } else {
       setMsg("✅ Agendamento criado com sucesso!");
-      setClienteId("");
-      setServiceId("");
-      setBarbeariaId("");
-      setStartsAt("");
-      setStatus("pendente");
+      setNovoAgendamento({
+        cliente_id: "",
+        service_id: "",
+        barbearia_id: "",
+        starts_at: "",
+        status: "pendente",
+      });
       fetchAgendamentos();
     }
-  };
+  }
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4 text-yellow-500">
         Agenda do Dono
       </h1>
 
       {msg && (
         <p
-          className={`mb-4 text-sm ${
-            msg.startsWith("✅") ? "text-green-400" : "text-red-400"
+          className={`mb-4 ${
+            msg.startsWith("✅") ? "text-green-500" : "text-red-500"
           }`}
         >
           {msg}
@@ -110,42 +128,48 @@ export default function AgendaPage() {
       )}
 
       {/* Formulário */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 max-w-3xl">
-        <h2 className="text-xl font-semibold mb-4">+ Novo Agendamento</h2>
+      <div className="bg-gray-800 p-4 rounded-lg shadow mb-6">
+        <h2 className="text-lg font-semibold mb-4">+ Novo Agendamento</h2>
 
         {/* Cliente */}
         <select
-          value={clienteId}
-          onChange={(e) => setClienteId(e.target.value)}
-          className="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={novoAgendamento.cliente_id}
+          onChange={(e) =>
+            setNovoAgendamento({ ...novoAgendamento, cliente_id: e.target.value })
+          }
+          className="block w-full mb-2 p-2 bg-gray-700"
         >
           <option value="">Selecione Cliente</option>
           {clientes.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.nome}
+              {c.nome} ({c.email || "sem email"})
             </option>
           ))}
         </select>
 
         {/* Serviço */}
         <select
-          value={serviceId}
-          onChange={(e) => setServiceId(e.target.value)}
-          className="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={novoAgendamento.service_id}
+          onChange={(e) =>
+            setNovoAgendamento({ ...novoAgendamento, service_id: e.target.value })
+          }
+          className="block w-full mb-2 p-2 bg-gray-700"
         >
           <option value="">Selecione Serviço</option>
           {servicos.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}
+              {s.name} — €{s.price}
             </option>
           ))}
         </select>
 
         {/* Barbearia */}
         <select
-          value={barbeariaId}
-          onChange={(e) => setBarbeariaId(e.target.value)}
-          className="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={novoAgendamento.barbearia_id}
+          onChange={(e) =>
+            setNovoAgendamento({ ...novoAgendamento, barbearia_id: e.target.value })
+          }
+          className="block w-full mb-2 p-2 bg-gray-700"
         >
           <option value="">Selecione Barbearia</option>
           {barbearias.map((b) => (
@@ -158,16 +182,20 @@ export default function AgendaPage() {
         {/* Data e Hora */}
         <input
           type="datetime-local"
-          value={startsAt}
-          onChange={(e) => setStartsAt(e.target.value)}
-          className="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={novoAgendamento.starts_at}
+          onChange={(e) =>
+            setNovoAgendamento({ ...novoAgendamento, starts_at: e.target.value })
+          }
+          className="block w-full mb-2 p-2 bg-gray-700"
         />
 
         {/* Status */}
         <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={novoAgendamento.status}
+          onChange={(e) =>
+            setNovoAgendamento({ ...novoAgendamento, status: e.target.value })
+          }
+          className="block w-full mb-2 p-2 bg-gray-700"
         >
           <option value="pendente">Pendente</option>
           <option value="confirmado">Confirmado</option>
@@ -176,44 +204,44 @@ export default function AgendaPage() {
 
         <button
           onClick={handleSave}
-          className="px-4 py-2 bg-yellow-600 text-black rounded hover:bg-yellow-700"
+          className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-white"
         >
           Salvar Agendamento
         </button>
       </div>
 
-      {/* Lista */}
-      <table className="w-full text-left border-collapse mt-6">
+      {/* Tabela */}
+      <table className="w-full bg-gray-800 rounded-lg overflow-hidden">
         <thead>
-          <tr className="border-b border-gray-700">
+          <tr className="bg-gray-700 text-left">
             <th className="p-2">Data</th>
             <th className="p-2">Status</th>
             <th className="p-2">Cliente</th>
             <th className="p-2">Serviço</th>
             <th className="p-2">Barbearia</th>
-            <th className="p-2">Barbeiro</th>
           </tr>
         </thead>
         <tbody>
-          {agendamentos.length === 0 ? (
-            <tr>
-              <td colSpan="6" className="p-4 text-center text-gray-500">
-                Nenhum agendamento encontrado
-              </td>
-            </tr>
-          ) : (
+          {agendamentos.length > 0 ? (
             agendamentos.map((a) => (
-              <tr key={a.id} className="border-b border-gray-700">
+              <tr key={a.id} className="border-b border-gray-600">
                 <td className="p-2">
                   {new Date(a.starts_at).toLocaleString("pt-PT")}
                 </td>
                 <td className="p-2">{a.status}</td>
-                <td className="p-2">{a.clientes?.nome || "-"}</td>
-                <td className="p-2">{a.services?.name || "-"}</td>
-                <td className="p-2">{a.barbearias?.nome || "-"}</td>
-                <td className="p-2">{a.profiles?.name || "-"}</td>
+                <td className="p-2">{a.clientes?.nome || "—"}</td>
+                <td className="p-2">
+                  {a.services?.name} (€{a.services?.price})
+                </td>
+                <td className="p-2">{a.barbearias?.nome || "—"}</td>
               </tr>
             ))
+          ) : (
+            <tr>
+              <td colSpan="5" className="p-4 text-center text-gray-400">
+                Nenhum agendamento encontrado
+              </td>
+            </tr>
           )}
         </tbody>
       </table>
