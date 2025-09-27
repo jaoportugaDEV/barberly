@@ -27,6 +27,7 @@ export default function AgendaPage() {
     fetchBarbearias();
   }, []);
 
+  // 🔹 Buscar agendamentos (esconde os concluídos)
   async function fetchAgendamentos() {
     const { data, error } = await supabase
       .from("appointments")
@@ -40,6 +41,7 @@ export default function AgendaPage() {
         barbearias (nome)
       `
       )
+      .not("status", "eq", "concluido") // não mostra os concluídos
       .order("starts_at", { ascending: true });
 
     if (error) {
@@ -74,6 +76,7 @@ export default function AgendaPage() {
     else setBarbearias(data || []);
   }
 
+  // 🔹 Salvar agendamento
   async function handleSave() {
     if (
       !novoAgendamento.cliente_id ||
@@ -111,6 +114,20 @@ export default function AgendaPage() {
     }
   }
 
+  // 🔹 Concluir agendamento
+  async function marcarComoConcluido(id) {
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: "concluido" })
+      .eq("id", id);
+
+    if (error) {
+      console.error("❌ Erro ao concluir:", error);
+    } else {
+      fetchAgendamentos();
+    }
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4 text-yellow-500">
@@ -135,7 +152,10 @@ export default function AgendaPage() {
         <select
           value={novoAgendamento.cliente_id}
           onChange={(e) =>
-            setNovoAgendamento({ ...novoAgendamento, cliente_id: e.target.value })
+            setNovoAgendamento({
+              ...novoAgendamento,
+              cliente_id: e.target.value,
+            })
           }
           className="block w-full mb-2 p-2 bg-gray-700"
         >
@@ -151,7 +171,10 @@ export default function AgendaPage() {
         <select
           value={novoAgendamento.service_id}
           onChange={(e) =>
-            setNovoAgendamento({ ...novoAgendamento, service_id: e.target.value })
+            setNovoAgendamento({
+              ...novoAgendamento,
+              service_id: e.target.value,
+            })
           }
           className="block w-full mb-2 p-2 bg-gray-700"
         >
@@ -167,7 +190,10 @@ export default function AgendaPage() {
         <select
           value={novoAgendamento.barbearia_id}
           onChange={(e) =>
-            setNovoAgendamento({ ...novoAgendamento, barbearia_id: e.target.value })
+            setNovoAgendamento({
+              ...novoAgendamento,
+              barbearia_id: e.target.value,
+            })
           }
           className="block w-full mb-2 p-2 bg-gray-700"
         >
@@ -184,7 +210,10 @@ export default function AgendaPage() {
           type="datetime-local"
           value={novoAgendamento.starts_at}
           onChange={(e) =>
-            setNovoAgendamento({ ...novoAgendamento, starts_at: e.target.value })
+            setNovoAgendamento({
+              ...novoAgendamento,
+              starts_at: e.target.value,
+            })
           }
           className="block w-full mb-2 p-2 bg-gray-700"
         />
@@ -219,6 +248,7 @@ export default function AgendaPage() {
             <th className="p-2">Cliente</th>
             <th className="p-2">Serviço</th>
             <th className="p-2">Barbearia</th>
+            <th className="p-2">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -234,11 +264,21 @@ export default function AgendaPage() {
                   {a.services?.name} (€{a.services?.price})
                 </td>
                 <td className="p-2">{a.barbearias?.nome || "—"}</td>
+                <td className="p-2">
+                  {a.status !== "concluido" && (
+                    <button
+                      onClick={() => marcarComoConcluido(a.id)}
+                      className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-white"
+                    >
+                      Concluir
+                    </button>
+                  )}
+                </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="5" className="p-4 text-center text-gray-400">
+              <td colSpan="6" className="p-4 text-center text-gray-400">
                 Nenhum agendamento encontrado
               </td>
             </tr>
