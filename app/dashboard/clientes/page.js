@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Save, Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2, Save, X, Plus } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
 
 export default function ClientesPage() {
@@ -10,195 +10,192 @@ export default function ClientesPage() {
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // carregar clientes do barbeiro logado
+  const [barberId, setBarberId] = useState(null);
+  const [barbeariaId, setBarbeariaId] = useState(null);
+
+  // Pega barbeiro logado
   useEffect(() => {
-    const fetchClientes = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
+      if (user) {
+        setBarberId(user.id);
+
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("barbearia_id")
+          .eq("id", user.id)
+          .single();
+
+        if (prof?.barbearia_id) {
+          setBarbeariaId(prof.barbearia_id);
+        }
+      }
+    };
+    getUser();
+  }, []);
+
+  // Buscar clientes só do barbeiro logado
+  useEffect(() => {
+    if (!barberId) return;
+
+    const fetchClientes = async () => {
       const { data, error } = await supabase
         .from("clientes")
-        .select("*")
-        .eq("user_id", user.id) // 🔥 pega só clientes do barbeiro logado
-        .order("created_at", { ascending: false });
+        .select("id, nome, telefone, email")
+        .eq("barber_id", barberId); // 🔹 só os clientes cadastrados por este barbeiro
 
-      if (error) console.error("Erro ao buscar clientes:", error);
-      else setClientes(data);
-
-      setLoading(false);
+      if (error) {
+        console.error("Erro ao buscar clientes:", error);
+      } else {
+        setClientes(data || []);
+      }
     };
 
     fetchClientes();
-  }, []);
+  }, [barberId]);
 
-  // salvar ou atualizar cliente
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Salvar cliente
+  const salvarCliente = async () => {
     if (!nome || !telefone) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      alert("Você precisa estar logado para adicionar clientes.");
-      return;
-    }
+    const payload = {
+      nome,
+      telefone,
+      email,
+      barbearia_id: barbeariaId,
+      barber_id: barberId, // 🔹 registra o barbeiro que cadastrou
+    };
 
     if (editingId) {
-      // atualizar cliente existente
-      const { error } = await supabase
-        .from("clientes")
-        .update({ nome, telefone, email })
-        .eq("id", editingId)
-        .eq("user_id", user.id); // 🔥 garante que só atualiza os do barbeiro logado
-
-      if (error) console.error("Erro ao atualizar cliente:", error);
-      else {
-        setClientes((prev) =>
-          prev.map((c) =>
-            c.id === editingId ? { ...c, nome, telefone, email } : c
-          )
-        );
-        setEditingId(null);
-      }
+      await supabase.from("clientes").update(payload).eq("id", editingId);
     } else {
-      // inserir novo cliente
-      const { data, error } = await supabase
-        .from("clientes")
-        .insert([{ nome, telefone, email, user_id: user.id }])
-        .select();
-
-      if (error) console.error("Erro ao adicionar cliente:", error);
-      else setClientes((prev) => [...data, ...prev]);
+      await supabase.from("clientes").insert([payload]);
     }
 
     setNome("");
     setTelefone("");
     setEmail("");
-  };
-
-  const startEdit = (c) => {
-    setEditingId(c.id);
-    setNome(c.nome);
-    setTelefone(c.telefone);
-    setEmail(c.email || "");
-  };
-
-  const cancelEdit = () => {
     setEditingId(null);
-    setNome("");
-    setTelefone("");
-    setEmail("");
+
+    // Recarregar clientes do barbeiro
+    const { data } = await supabase
+      .from("clientes")
+      .select("id, nome, telefone, email")
+      .eq("barber_id", barberId);
+
+    setClientes(data || []);
   };
 
-  const removeCliente = async (id) => {
+  // Editar cliente
+  const editarCliente = (cliente) => {
+    setNome(cliente.nome);
+    setTelefone(cliente.telefone);
+    setEmail(cliente.email || "");
+    setEditingId(cliente.id);
+  };
+
+  // Remover cliente
+  const removerCliente = async (id) => {
     if (!confirm("Deseja remover este cliente?")) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("clientes")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id); // 🔥 só deleta se for dono
-
-    if (error) console.error("Erro ao remover cliente:", error);
-    else setClientes((prev) => prev.filter((c) => c.id !== id));
+    await supabase.from("clientes").delete().eq("id", id);
+    setClientes((prev) => prev.filter((c) => c.id !== id));
   };
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">Clientes</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-yellow-500 mb-6">Clientes</h1>
 
       {/* Formulário */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-900 p-4 rounded-lg mb-6 flex gap-4 items-end"
-      >
+      <div className="bg-gray-800 p-4 rounded-lg shadow mb-6 flex gap-2">
         <input
           type="text"
           placeholder="Nome"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="flex-1 p-2 rounded bg-gray-700 text-white"
         />
         <input
           type="text"
           placeholder="Telefone"
           value={telefone}
           onChange={(e) => setTelefone(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="flex-1 p-2 rounded bg-gray-700 text-white"
         />
         <input
           type="email"
           placeholder="Email (opcional)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="flex-1 p-2 rounded bg-gray-700 text-white"
         />
         <button
-          type="submit"
-          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
+          onClick={salvarCliente}
+          className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-black font-semibold flex items-center gap-2"
         >
           {editingId ? <Save size={16} /> : <Plus size={16} />}
           {editingId ? "Salvar" : "Adicionar"}
         </button>
         {editingId && (
           <button
-            type="button"
-            onClick={cancelEdit}
-            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+            onClick={() => {
+              setEditingId(null);
+              setNome("");
+              setTelefone("");
+              setEmail("");
+            }}
+            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded text-white flex items-center gap-2"
           >
             <X size={16} /> Cancelar
           </button>
         )}
-      </form>
+      </div>
 
       {/* Lista de clientes */}
-      <div className="bg-gray-900 p-4 rounded-lg">
-        <h2 className="text-lg font-bold mb-4">Lista de Clientes</h2>
-
-        {loading ? (
-          <p className="text-gray-400">Carregando clientes...</p>
-        ) : clientes.length === 0 ? (
-          <p className="text-gray-400">Nenhum cliente cadastrado ainda.</p>
-        ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="p-2">Nome</th>
-                <th className="p-2">Telefone</th>
-                <th className="p-2">Email</th>
-                <th className="p-2">Ações</th>
+      <table className="w-full bg-gray-800 rounded-lg overflow-hidden">
+        <thead>
+          <tr className="bg-gray-700 text-left">
+            <th className="p-2">Nome</th>
+            <th className="p-2">Telefone</th>
+            <th className="p-2">Email</th>
+            <th className="p-2">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clientes.length > 0 ? (
+            clientes.map((c) => (
+              <tr key={c.id} className="border-b border-gray-600">
+                <td className="p-2">{c.nome}</td>
+                <td className="p-2">{c.telefone}</td>
+                <td className="p-2">{c.email || "—"}</td>
+                <td className="p-2 flex gap-2">
+                  <button
+                    onClick={() => editarCliente(c)}
+                    className="p-2 bg-gray-700 hover:bg-gray-600 rounded"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => removerCliente(c.id)}
+                    className="p-2 bg-red-600 hover:bg-red-700 rounded"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {clientes.map((c) => (
-                <tr key={c.id} className="border-b border-gray-700">
-                  <td className="p-2">{c.nome}</td>
-                  <td className="p-2">{c.telefone}</td>
-                  <td className="p-2">{c.email}</td>
-                  <td className="p-2 flex gap-2">
-                    <button
-                      onClick={() => startEdit(c)}
-                      className="text-blue-400 hover:text-blue-600"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => removeCliente(c.id)}
-                      className="text-red-400 hover:text-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="4" className="p-4 text-center text-gray-400">
+                Nenhum cliente encontrado
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

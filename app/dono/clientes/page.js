@@ -8,210 +8,161 @@ export default function ClientesPage() {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
-  const [msg, setMsg] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [busca, setBusca] = useState("");
+  const [meusClientes, setMeusClientes] = useState(true);
+  const [userId, setUserId] = useState(null);
 
-  const [search, setSearch] = useState(""); // 🔎 estado do filtro
-
-  // Carregar clientes
   useEffect(() => {
-    fetchClientes();
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUser();
   }, []);
 
-  const fetchClientes = async () => {
-    const { data, error } = await supabase
-      .from("clientes")
-      .select("*")
-      .order("created_at", { ascending: false });
+  useEffect(() => {
+    if (userId) fetchClientes();
+  }, [userId, meusClientes]);
 
-    if (!error) setClientes(data);
-  };
+  async function fetchClientes() {
+    let query = supabase.from("clientes").select("id, nome, telefone, email, created_at, user_id");
 
-  // Criar novo cliente
-  const handleAdd = async () => {
-    if (!nome || !telefone) {
-      setMsg("⚠️ Nome e telefone são obrigatórios.");
-      return;
-    }
+    if (meusClientes) query = query.eq("user_id", userId);
 
-    setLoading(true);
-    const { error } = await supabase.from("clientes").insert([
-      { nome, telefone, email: email || null },
-    ]);
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (!error) setClientes(data || []);
+  }
 
-    if (error) {
-      console.error("❌ Erro ao criar cliente:", error);
-      setMsg("❌ Erro ao criar cliente.");
-    } else {
-      setMsg("✅ Cliente adicionado com sucesso!");
-      setNome("");
-      setTelefone("");
-      setEmail("");
-      fetchClientes();
-    }
-    setLoading(false);
-  };
+  async function adicionarCliente() {
+    if (!nome || !telefone) return alert("Preencha nome e telefone!");
+    await supabase.from("clientes").insert([{ nome, telefone, email: email || null, user_id: userId }]);
+    setNome(""); setTelefone(""); setEmail("");
+    fetchClientes();
+  }
 
-  // Atualizar cliente
-  const handleUpdate = async (id) => {
-    if (!nome || !telefone) {
-      setMsg("⚠️ Nome e telefone são obrigatórios.");
-      return;
-    }
+  async function excluirCliente(id) {
+    if (!confirm("Deseja excluir este cliente?")) return;
+    await supabase.from("clientes").delete().eq("id", id);
+    fetchClientes();
+  }
 
-    setLoading(true);
-    const { error } = await supabase
-      .from("clientes")
-      .update({ nome, telefone, email: email || null })
-      .eq("id", id);
-
-    if (error) {
-      console.error("❌ Erro ao atualizar cliente:", error);
-      setMsg("❌ Erro ao atualizar cliente.");
-    } else {
-      setMsg("✏️ Cliente atualizado com sucesso!");
-      setNome("");
-      setTelefone("");
-      setEmail("");
-      setEditId(null);
-      fetchClientes();
-    }
-    setLoading(false);
-  };
-
-  // Excluir cliente
-  const handleDelete = async (id) => {
-    if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
-
-    const { error } = await supabase.from("clientes").delete().eq("id", id);
-
-    if (error) {
-      console.error("❌ Erro ao excluir cliente:", error);
-      setMsg("❌ Erro ao excluir cliente.");
-    } else {
-      setMsg("🗑️ Cliente excluído com sucesso!");
-      fetchClientes();
-    }
-  };
-
-  // 🔎 Aplicar filtro
-  const filteredClientes = clientes.filter(
-    (c) =>
-      c.nome.toLowerCase().includes(search.toLowerCase()) ||
-      c.telefone.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email && c.email.toLowerCase().includes(search.toLowerCase()))
+  const clientesFiltrados = clientes.filter((c) =>
+    [c.nome, c.telefone, c.email].filter(Boolean).some((campo) =>
+      campo.toLowerCase().includes(busca.toLowerCase())
+    )
   );
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">Clientes</h1>
+    <div className="p-8 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800">
+      <h1 className="text-3xl font-extrabold text-yellow-400 mb-8 drop-shadow-lg">
+        Clientes
+      </h1>
 
-      {/* Formulário de criação/edição */}
-      <div className="flex gap-2 mb-6">
+      {/* Form + Switch */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 bg-white/5 backdrop-blur-md border border-gray-700 p-4 rounded-2xl shadow-lg">
         <input
           type="text"
           placeholder="Nome"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
         <input
           type="text"
           placeholder="Telefone"
           value={telefone}
           onChange={(e) => setTelefone(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
         <input
-          type="email"
+          type="text"
           placeholder="Email (opcional)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
+        <button
+          onClick={adicionarCliente}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold px-5 py-2 rounded-lg shadow-md transition-all"
+        >
+          Adicionar cliente
+        </button>
 
-        {editId ? (
+        {/* Switch estilizado */}
+        <div className="flex items-center gap-3 ml-auto">
+          <span className="text-sm text-gray-300">{meusClientes ? "Meus clientes" : "Todos os clientes"}</span>
           <button
-            onClick={() => handleUpdate(editId)}
-            disabled={loading}
-            className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
+            onClick={() => setMeusClientes(!meusClientes)}
+            className={`relative w-14 h-7 flex items-center rounded-full p-1 transition-colors duration-300 ${
+              meusClientes ? "bg-gradient-to-r from-yellow-400 to-yellow-600" : "bg-gray-600"
+            }`}
           >
-            {loading ? "Salvando..." : "Salvar alterações"}
+            <div
+              className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${
+                meusClientes ? "translate-x-7" : "translate-x-0"
+              }`}
+            />
           </button>
-        ) : (
-          <button
-            onClick={handleAdd}
-            disabled={loading}
-            className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
-          >
-            {loading ? "Adicionando..." : "Adicionar cliente"}
-          </button>
-        )}
+        </div>
       </div>
 
-      {msg && <p className="mb-4 text-sm text-gray-300">{msg}</p>}
-
-      {/* 🔎 Campo de busca */}
+      {/* Barra de busca */}
       <input
         type="text"
-        placeholder="Pesquisar cliente por nome, telefone ou email..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-3 py-2 mb-6 rounded-lg bg-gray-800 border border-gray-700 text-white"
+        placeholder="Buscar cliente por nome, telefone ou email..."
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        className="w-full mb-6 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
       />
 
-      {/* Lista de clientes */}
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-700">
-            <th className="p-2">Nome</th>
-            <th className="p-2">Telefone</th>
-            <th className="p-2">Email</th>
-            <th className="p-2">Criado em</th>
-            <th className="p-2">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredClientes.length > 0 ? (
-            filteredClientes.map((c) => (
-              <tr key={c.id} className="border-b border-gray-700">
-                <td className="p-2">{c.nome}</td>
-                <td className="p-2">{c.telefone}</td>
-                <td className="p-2">{c.email || "-"}</td>
-                <td className="p-2">
-                  {new Date(c.created_at).toLocaleString("pt-PT")}
-                </td>
-                <td className="p-2 flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditId(c.id);
-                      setNome(c.nome);
-                      setTelefone(c.telefone);
-                      setEmail(c.email || "");
-                    }}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
-                  >
-                    Excluir
-                  </button>
+      {/* Lista */}
+      <div className="overflow-hidden rounded-2xl shadow-xl border border-gray-700 backdrop-blur-md bg-white/5">
+        <table className="w-full text-white">
+          <thead>
+            <tr className="bg-gray-900/70 text-yellow-400 text-left">
+              <th className="p-3">Nome</th>
+              <th className="p-3">Telefone</th>
+              <th className="p-3">Email</th>
+              <th className="p-3">Criado em</th>
+              <th className="p-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clientesFiltrados.length > 0 ? (
+              clientesFiltrados.map((c) => (
+                <tr
+                  key={c.id}
+                  className="border-b border-gray-700 hover:bg-gray-800/70 transition-colors"
+                >
+                  <td className="p-3">{c.nome}</td>
+                  <td className="p-3">{c.telefone}</td>
+                  <td className="p-3">{c.email || "—"}</td>
+                  <td className="p-3">{new Date(c.created_at).toLocaleString("pt-PT")}</td>
+                  <td className="p-3 flex gap-2">
+                    <button className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg text-sm transition-all">
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => excluirCliente(c.id)}
+                      className="bg-red-600 hover:bg-red-500 px-3 py-1 rounded-lg text-sm transition-all"
+                    >
+                      Excluir
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" className="p-6 text-center text-gray-400">
+                  Nenhum cliente encontrado
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5" className="p-4 text-center text-gray-400">
-                Nenhum cliente encontrado.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import supabase from "@/lib/supabaseClient";
 
 export default function AgendaPage() {
   const [agendamentos, setAgendamentos] = useState([]);
+  const [rawAppts, setRawAppts] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [servicos, setServicos] = useState([]);
   const [barbearias, setBarbearias] = useState([]);
@@ -18,65 +19,80 @@ export default function AgendaPage() {
   });
 
   const [msg, setMsg] = useState("");
+  const [donoId, setDonoId] = useState(null);
 
-  // Buscar dados iniciais
+  // pega dono
   useEffect(() => {
-    fetchAgendamentos();
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user) setDonoId(auth.user.id);
+    })();
+  }, []);
+
+  // carrega bases
+  useEffect(() => {
+    if (!donoId) return;
     fetchClientes();
     fetchServicos();
     fetchBarbearias();
-  }, []);
+  }, [donoId]);
 
-  // 🔹 Buscar agendamentos (esconde os concluídos)
-  async function fetchAgendamentos() {
+  // busca agendamentos crus
+  useEffect(() => {
+    if (clientes.length === 0) {
+      setRawAppts([]);
+      return;
+    }
+    fetchAgendamentos(clientes.map((c) => c.id));
+  }, [clientes]);
+
+  // enriquece
+  useEffect(() => {
+    const cMap = new Map(clientes.map((c) => [c.id, c]));
+    const sMap = new Map(servicos.map((s) => [s.id, s]));
+    const bMap = new Map(barbearias.map((b) => [b.id, b]));
+
+    setAgendamentos(
+      rawAppts.map((a) => ({
+        ...a,
+        cliente_nome: cMap.get(a.user_id)?.nome ?? "—",
+        service_nome: sMap.get(a.service_id)?.name ?? "—",
+        service_price: sMap.get(a.service_id)?.price ?? 0,
+        barbearia_nome: bMap.get(a.barbearia_id)?.nome ?? "—",
+      }))
+    );
+  }, [rawAppts, clientes, servicos, barbearias]);
+
+  // ---- FETCH ----
+  async function fetchAgendamentos(ids) {
     const { data, error } = await supabase
       .from("appointments")
-      .select(
-        `
-        id,
-        starts_at,
-        status,
-        clientes (nome),
-        services (name, price),
-        barbearias (nome)
-      `
-      )
-      .not("status", "eq", "concluido") // não mostra os concluídos
+      .select("id, starts_at, status, user_id, service_id, barbearia_id")
+      .in("user_id", ids)
+      .not("status", "eq", "concluido")
       .order("starts_at", { ascending: true });
-
-    if (error) {
-      console.error("❌ Erro ao buscar agendamentos:", error);
-      setAgendamentos([]);
-    } else {
-      setAgendamentos(data || []);
-    }
+    if (!error) setRawAppts(data || []);
   }
 
   async function fetchClientes() {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("clientes")
-      .select("id, nome, email");
-    if (error) console.error("❌ Erro ao buscar clientes:", error);
-    else setClientes(data || []);
+      .select("id, nome, email, user_id")
+      .eq("user_id", donoId);
+    setClientes(data || []);
   }
 
   async function fetchServicos() {
-    const { data, error } = await supabase
-      .from("services")
-      .select("id, name, price");
-    if (error) console.error("❌ Erro ao buscar serviços:", error);
-    else setServicos(data || []);
+    const { data } = await supabase.from("services").select("id, name, price");
+    setServicos(data || []);
   }
 
   async function fetchBarbearias() {
-    const { data, error } = await supabase
-      .from("barbearias")
-      .select("id, nome");
-    if (error) console.error("❌ Erro ao buscar barbearias:", error);
-    else setBarbearias(data || []);
+    const { data } = await supabase.from("barbearias").select("id, nome");
+    setBarbearias(data || []);
   }
 
-  // 🔹 Salvar agendamento
+  // ---- AÇÕES ----
   async function handleSave() {
     if (
       !novoAgendamento.cliente_id ||
@@ -98,10 +114,8 @@ export default function AgendaPage() {
       },
     ]);
 
-    if (error) {
-      console.error("❌ Erro ao salvar agendamento:", error);
-      setMsg("❌ Erro ao salvar agendamento.");
-    } else {
+    if (error) setMsg("❌ Erro ao salvar agendamento.");
+    else {
       setMsg("✅ Agendamento criado com sucesso!");
       setNovoAgendamento({
         cliente_id: "",
@@ -110,181 +124,172 @@ export default function AgendaPage() {
         starts_at: "",
         status: "pendente",
       });
-      fetchAgendamentos();
+      fetchAgendamentos(clientes.map((c) => c.id));
     }
   }
 
-  // 🔹 Concluir agendamento
   async function marcarComoConcluido(id) {
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "concluido" })
-      .eq("id", id);
-
-    if (error) {
-      console.error("❌ Erro ao concluir:", error);
-    } else {
-      fetchAgendamentos();
-    }
+    await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
+    fetchAgendamentos(clientes.map((c) => c.id));
   }
 
+  // ---- UI ----
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 text-yellow-500">
+    <div className="p-8 bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen text-white">
+      <h1 className="text-3xl font-extrabold mb-8 bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
         Agenda do Dono
       </h1>
 
       {msg && (
-        <p
-          className={`mb-4 ${
-            msg.startsWith("✅") ? "text-green-500" : "text-red-500"
+        <div
+          className={`mb-6 px-4 py-2 rounded-lg text-sm font-medium shadow-md ${
+            msg.startsWith("✅")
+              ? "bg-green-500/20 text-green-400 border border-green-500/30"
+              : "bg-red-500/20 text-red-400 border border-red-500/30"
           }`}
         >
           {msg}
-        </p>
+        </div>
       )}
 
-      {/* Formulário */}
-      <div className="bg-gray-800 p-4 rounded-lg shadow mb-6">
-        <h2 className="text-lg font-semibold mb-4">+ Novo Agendamento</h2>
+      {/* Form */}
+      <div className="backdrop-blur-md bg-gray-800/40 p-6 rounded-2xl shadow-lg mb-10 border border-gray-700/50">
+        <h2 className="text-xl font-bold mb-4 text-yellow-400 flex items-center gap-2">
+          <span className="text-yellow-400">➕</span> Novo Agendamento
+        </h2>
 
-        {/* Cliente */}
-        <select
-          value={novoAgendamento.cliente_id}
-          onChange={(e) =>
-            setNovoAgendamento({
-              ...novoAgendamento,
-              cliente_id: e.target.value,
-            })
-          }
-          className="block w-full mb-2 p-2 bg-gray-700"
-        >
-          <option value="">Selecione Cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nome} ({c.email || "sem email"})
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <select
+            value={novoAgendamento.cliente_id}
+            onChange={(e) =>
+              setNovoAgendamento({ ...novoAgendamento, cliente_id: e.target.value })
+            }
+            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
+          >
+            <option value="">Selecione Cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome} ({c.email || "sem email"})
+              </option>
+            ))}
+          </select>
 
-        {/* Serviço */}
-        <select
-          value={novoAgendamento.service_id}
-          onChange={(e) =>
-            setNovoAgendamento({
-              ...novoAgendamento,
-              service_id: e.target.value,
-            })
-          }
-          className="block w-full mb-2 p-2 bg-gray-700"
-        >
-          <option value="">Selecione Serviço</option>
-          {servicos.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} — €{s.price}
-            </option>
-          ))}
-        </select>
+          <select
+            value={novoAgendamento.service_id}
+            onChange={(e) =>
+              setNovoAgendamento({ ...novoAgendamento, service_id: e.target.value })
+            }
+            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
+          >
+            <option value="">Selecione Serviço</option>
+            {servicos.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} — €{s.price}
+              </option>
+            ))}
+          </select>
 
-        {/* Barbearia */}
-        <select
-          value={novoAgendamento.barbearia_id}
-          onChange={(e) =>
-            setNovoAgendamento({
-              ...novoAgendamento,
-              barbearia_id: e.target.value,
-            })
-          }
-          className="block w-full mb-2 p-2 bg-gray-700"
-        >
-          <option value="">Selecione Barbearia</option>
-          {barbearias.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.nome}
-            </option>
-          ))}
-        </select>
+          <select
+            value={novoAgendamento.barbearia_id}
+            onChange={(e) =>
+              setNovoAgendamento({ ...novoAgendamento, barbearia_id: e.target.value })
+            }
+            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
+          >
+            <option value="">Selecione Barbearia</option>
+            {barbearias.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.nome}
+              </option>
+            ))}
+          </select>
 
-        {/* Data e Hora */}
-        <input
-          type="datetime-local"
-          value={novoAgendamento.starts_at}
-          onChange={(e) =>
-            setNovoAgendamento({
-              ...novoAgendamento,
-              starts_at: e.target.value,
-            })
-          }
-          className="block w-full mb-2 p-2 bg-gray-700"
-        />
+          <input
+            type="datetime-local"
+            value={novoAgendamento.starts_at}
+            onChange={(e) =>
+              setNovoAgendamento({ ...novoAgendamento, starts_at: e.target.value })
+            }
+            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
+          />
 
-        {/* Status */}
-        <select
-          value={novoAgendamento.status}
-          onChange={(e) =>
-            setNovoAgendamento({ ...novoAgendamento, status: e.target.value })
-          }
-          className="block w-full mb-2 p-2 bg-gray-700"
-        >
-          <option value="pendente">Pendente</option>
-          <option value="confirmado">Confirmado</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
+          <select
+            value={novoAgendamento.status}
+            onChange={(e) => setNovoAgendamento({ ...novoAgendamento, status: e.target.value })}
+            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
+          >
+            <option value="pendente">Pendente</option>
+            <option value="confirmado">Confirmado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
 
         <button
           onClick={handleSave}
-          className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded text-white"
+          className="mt-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition"
         >
-          Salvar Agendamento
+          💾 Salvar Agendamento
         </button>
       </div>
 
       {/* Tabela */}
-      <table className="w-full bg-gray-800 rounded-lg overflow-hidden">
-        <thead>
-          <tr className="bg-gray-700 text-left">
-            <th className="p-2">Data</th>
-            <th className="p-2">Status</th>
-            <th className="p-2">Cliente</th>
-            <th className="p-2">Serviço</th>
-            <th className="p-2">Barbearia</th>
-            <th className="p-2">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {agendamentos.length > 0 ? (
-            agendamentos.map((a) => (
-              <tr key={a.id} className="border-b border-gray-600">
-                <td className="p-2">
-                  {new Date(a.starts_at).toLocaleString("pt-PT")}
-                </td>
-                <td className="p-2">{a.status}</td>
-                <td className="p-2">{a.clientes?.nome || "—"}</td>
-                <td className="p-2">
-                  {a.services?.name} (€{a.services?.price})
-                </td>
-                <td className="p-2">{a.barbearias?.nome || "—"}</td>
-                <td className="p-2">
-                  {a.status !== "concluido" && (
-                    <button
-                      onClick={() => marcarComoConcluido(a.id)}
-                      className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-white"
+      <div className="overflow-hidden rounded-2xl shadow-lg border border-gray-700/50">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-700 to-gray-800 text-yellow-400">
+            <tr>
+              <th className="p-3 text-left">Data</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Cliente</th>
+              <th className="p-3">Serviço</th>
+              <th className="p-3">Barbearia</th>
+              <th className="p-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {agendamentos.length > 0 ? (
+              agendamentos.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-700/40 transition duration-200">
+                  <td className="p-3">{new Date(a.starts_at).toLocaleString("pt-PT")}</td>
+                  <td className="p-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        a.status === "confirmado"
+                          ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                          : a.status === "cancelado"
+                          ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                          : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                      }`}
                     >
-                      Concluir
-                    </button>
-                  )}
+                      {a.status}
+                    </span>
+                  </td>
+                  <td className="p-3">{a.cliente_nome}</td>
+                  <td className="p-3">
+                    {a.service_nome} {a.service_price ? `(€${a.service_price})` : ""}
+                  </td>
+                  <td className="p-3">{a.barbearia_nome}</td>
+                  <td className="p-3">
+                    {a.status !== "concluido" && (
+                      <button
+                        onClick={() => marcarComoConcluido(a.id)}
+                        className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-white shadow-md transition"
+                      >
+                        ✅ Concluir
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="p-4 text-center text-gray-400">
+                  Nenhum agendamento encontrado
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="6" className="p-4 text-center text-gray-400">
-                Nenhum agendamento encontrado
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

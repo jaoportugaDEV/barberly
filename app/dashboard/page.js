@@ -1,27 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import supabase from "@/lib/supabaseClient";
-import { Plus, Save, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
+import supabase from "../../lib/supabaseClient";
 
-export default function AgendaBarbeiro() {
-  const [agendamentos, setAgendamentos] = useState([]);
+const statusColors = {
+  confirmado: "bg-green-600",
+  pendente: "bg-yellow-600",
+  cancelado: "bg-red-600",
+  concluido: "bg-blue-600",
+};
+
+export default function DashboardPage() {
+  const [appointments, setAppointments] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [services, setServices] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+
+  const [clienteId, setClienteId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [status, setStatus] = useState("pendente");
+
   const [barberId, setBarberId] = useState(null);
   const [barbeariaId, setBarbeariaId] = useState(null);
+
   const [range, setRange] = useState("today"); // "today" | "week"
-  const [msg, setMsg] = useState("");
-
-  // Modal
-  const [showModal, setShowModal] = useState(false);
-  const [novoAgendamento, setNovoAgendamento] = useState({
-    cliente_id: "",
-    service_id: "",
-    starts_at: "",
-    status: "pendente",
-  });
-
-  const [clientes, setClientes] = useState([]);
-  const [servicos, setServicos] = useState([]);
 
   // pegar barbeiro logado
   useEffect(() => {
@@ -33,7 +38,6 @@ export default function AgendaBarbeiro() {
       if (user) {
         setBarberId(user.id);
 
-        // descobrir a barbearia que ele pertence
         const { data: prof } = await supabase
           .from("profiles")
           .select("barbearia_id")
@@ -48,118 +52,109 @@ export default function AgendaBarbeiro() {
     getUser();
   }, []);
 
-  // buscar clientes e serviços da barbearia
+  // buscar agendamentos, clientes e serviços
   useEffect(() => {
-    if (!barbeariaId) return;
+    const fetchData = async () => {
+      if (!barberId) return;
 
-    supabase
-      .from("clientes")
-      .select("id, nome")
-      .then(({ data }) => setClientes(data || []));
+      // agendamentos do barbeiro logado
+      let query = supabase
+        .from("appointments")
+        .select("id, starts_at, status, user_id, service_id")
+        .eq("barber_id", barberId)
+        .order("starts_at", { ascending: true });
 
-    supabase
-      .from("services")
-      .select("id, name, price")
-      .then(({ data }) => setServicos(data || []));
-  }, [barbeariaId]);
+      const now = new Date();
+      let start, end;
+      if (range === "today") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(start);
+        end.setDate(end.getDate() + 1);
+      } else {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(start);
+        end.setDate(end.getDate() + 7);
+      }
+      query = query
+        .gte("starts_at", start.toISOString())
+        .lt("starts_at", end.toISOString());
 
-  // buscar agendamentos do barbeiro
-  useEffect(() => {
-    if (!barberId) return;
+      const { data: appts } = await query;
 
-    fetchAgendamentos();
+      // clientes criados por ESTE barbeiro
+      const { data: cli } = await supabase
+        .from("clientes")
+        .select("id, nome, telefone, email")
+        .eq("barber_id", barberId);
+
+      const { data: servs } = await supabase.from("services").select("id, name");
+
+      setAppointments(appts || []);
+      setClientes(cli || []);
+      setServices(servs || []);
+    };
+
+    fetchData();
   }, [barberId, range]);
 
-  async function fetchAgendamentos() {
-    let query = supabase
+  const novoAgendamento = () => {
+    setEditingId(null);
+    setClienteId("");
+    setServiceId("");
+    setStartsAt("");
+    setStatus("pendente");
+    setShowModal(true);
+  };
+
+  const salvarAgendamento = async (e) => {
+    e.preventDefault();
+    if (!clienteId || !serviceId || !startsAt || !barberId || !barbeariaId) return;
+
+    const payload = {
+      user_id: clienteId,
+      service_id: serviceId,
+      starts_at: startsAt,
+      status,
+      barber_id: barberId,
+      barbearia_id: barbeariaId,
+    };
+
+    if (editingId) {
+      await supabase.from("appointments").update(payload).eq("id", editingId);
+    } else {
+      await supabase.from("appointments").insert(payload);
+    }
+
+    setShowModal(false);
+
+    const { data: appts } = await supabase
       .from("appointments")
-      .select(
-        `
-        id,
-        starts_at,
-        status,
-        clientes (nome),
-        services (name, price),
-        barbearias (nome)
-      `
-      )
+      .select("id, starts_at, status, user_id, service_id")
       .eq("barber_id", barberId)
       .order("starts_at", { ascending: true });
 
-    // filtro hoje ou semana
-    const now = new Date();
-    let start, end;
-    if (range === "today") {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      end = new Date(start);
-      end.setDate(end.getDate() + 1);
-    } else {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      end = new Date(start);
-      end.setDate(end.getDate() + 7);
-    }
+    setAppointments(appts || []);
+  };
 
-    query = query.gte("starts_at", start.toISOString()).lt("starts_at", end.toISOString());
+  const editarAgendamento = (a) => {
+    setEditingId(a.id);
+    setClienteId(a.user_id);
+    setServiceId(a.service_id);
+    setStartsAt(a.starts_at ? a.starts_at.substring(0, 16) : "");
+    setStatus(a.status);
+    setShowModal(true);
+  };
 
-    const { data, error } = await query;
-    if (error) {
-      console.error("❌ Erro ao buscar agendamentos:", error);
-      setAgendamentos([]);
-    } else {
-      setAgendamentos(data || []);
-    }
-  }
-
-  // salvar novo agendamento
-  async function salvarAgendamento(e) {
-    e.preventDefault();
-
-    if (!novoAgendamento.cliente_id || !novoAgendamento.service_id || !novoAgendamento.starts_at) {
-      setMsg("❌ Preencha todos os campos.");
-      return;
-    }
-
-    const { error } = await supabase.from("appointments").insert([
-      {
-        user_id: novoAgendamento.cliente_id,
-        service_id: novoAgendamento.service_id,
-        barber_id: barberId,
-        barbearia_id: barbeariaId,
-        starts_at: novoAgendamento.starts_at,
-        status: novoAgendamento.status,
-      },
-    ]);
-
-    if (error) {
-      console.error("❌ Erro ao salvar:", error);
-      setMsg("❌ Erro ao salvar agendamento.");
-    } else {
-      setMsg("✅ Agendamento criado!");
-      setShowModal(false);
-      setNovoAgendamento({ cliente_id: "", service_id: "", starts_at: "", status: "pendente" });
-      fetchAgendamentos();
-    }
-  }
-
-  // marcar como concluído
-  async function concluirAgendamento(id) {
-    const { error } = await supabase
-      .from("appointments")
-      .update({ status: "concluido" })
-      .eq("id", id);
-
-    if (!error) fetchAgendamentos();
-  }
+  const removerAgendamento = async (id) => {
+    if (!confirm("Deseja remover este agendamento?")) return;
+    await supabase.from("appointments").delete().eq("id", id);
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+  };
 
   return (
-    <div className="p-6">
+    <div>
       <h1 className="text-3xl font-bold text-yellow-500 mb-6">Minha Agenda</h1>
 
-      {msg && (
-        <p className={`mb-4 ${msg.startsWith("✅") ? "text-green-400" : "text-red-400"}`}>{msg}</p>
-      )}
-
-      {/* Filtro Hoje / Semana */}
       <div className="flex items-center gap-4 mb-6">
         <select
           value={range}
@@ -169,76 +164,69 @@ export default function AgendaBarbeiro() {
           <option value="today">Hoje</option>
           <option value="week">Semana</option>
         </select>
-
         <button
-          onClick={() => setShowModal(true)}
+          onClick={novoAgendamento}
           className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
         >
           <Plus size={18} /> Novo Agendamento
         </button>
       </div>
 
-      {/* Lista de agendamentos */}
       <div className="space-y-3">
-        {agendamentos.length === 0 ? (
-          <p className="text-gray-400">Nenhum agendamento encontrado</p>
-        ) : (
-          agendamentos.map((a) => (
+        {appointments.map((a) => {
+          const cliente = clientes.find((c) => c.id === a.user_id);
+          const servico = services.find((s) => s.id === a.service_id);
+
+          return (
             <div
               key={a.id}
-              className="bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center border border-gray-700"
+              className={`p-4 rounded-lg text-white ${statusColors[a.status]} flex justify-between items-center`}
             >
               <div>
-                <p className="font-bold">{a.clientes?.nome || "Cliente"}</p>
+                <p className="font-bold">{cliente?.nome || "Cliente"}</p>
                 <p className="text-sm opacity-80">
-                  {a.services?.name} (€{a.services?.price}) —{" "}
+                  {servico?.name || "Serviço"} —{" "}
                   {new Date(a.starts_at).toLocaleString("pt-PT")}
                 </p>
-                <span
-                  className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                    a.status === "confirmado"
-                      ? "bg-green-600 text-white"
-                      : a.status === "pendente"
-                      ? "bg-yellow-500 text-black"
-                      : a.status === "cancelado"
-                      ? "bg-red-600 text-white"
-                      : "bg-gray-500 text-white"
-                  }`}
-                >
-                  {a.status}
-                </span>
+                <p className="text-xs italic">{a.status}</p>
               </div>
-
-              {a.status !== "concluido" && (
+              <div className="flex gap-2">
                 <button
-                  onClick={() => concluirAgendamento(a.id)}
-                  className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-sm"
+                  onClick={() => editarAgendamento(a)}
+                  className="bg-gray-800 hover:bg-gray-700 p-2 rounded"
                 >
-                  Concluir
+                  <Pencil size={16} />
                 </button>
-              )}
+                <button
+                  onClick={() => removerAgendamento(a.id)}
+                  className="bg-gray-800 hover:bg-gray-700 p-2 rounded"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
-          ))
-        )}
+          );
+        })}
       </div>
 
-      {/* Modal novo agendamento */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">Novo Agendamento</h2>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {editingId ? "Editar Agendamento" : "Novo Agendamento"}
+            </h2>
             <form onSubmit={salvarAgendamento} className="space-y-4">
               <div>
                 <label className="block text-gray-300 mb-1">Cliente</label>
                 <select
-                  value={novoAgendamento.cliente_id}
-                  onChange={(e) => setNovoAgendamento({ ...novoAgendamento, cliente_id: e.target.value })}
+                  value={clienteId}
+                  onChange={(e) => setClienteId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
                 >
                   <option value="">-- Selecione --</option>
                   {clientes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.nome}
+                      {c.nome} ({c.telefone})
                     </option>
                   ))}
                 </select>
@@ -247,14 +235,14 @@ export default function AgendaBarbeiro() {
               <div>
                 <label className="block text-gray-300 mb-1">Serviço</label>
                 <select
-                  value={novoAgendamento.service_id}
-                  onChange={(e) => setNovoAgendamento({ ...novoAgendamento, service_id: e.target.value })}
+                  value={serviceId}
+                  onChange={(e) => setServiceId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
                 >
                   <option value="">-- Selecione --</option>
-                  {servicos.map((s) => (
+                  {services.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} — €{s.price}
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -264,20 +252,21 @@ export default function AgendaBarbeiro() {
                 <label className="block text-gray-300 mb-1">Data e Hora</label>
                 <input
                   type="datetime-local"
-                  value={novoAgendamento.starts_at}
-                  onChange={(e) => setNovoAgendamento({ ...novoAgendamento, starts_at: e.target.value })}
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
                 />
               </div>
 
               <select
-                value={novoAgendamento.status}
-                onChange={(e) => setNovoAgendamento({ ...novoAgendamento, status: e.target.value })}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
               >
                 <option value="pendente">Pendente</option>
                 <option value="confirmado">Confirmado</option>
                 <option value="cancelado">Cancelado</option>
+                <option value="concluido">Concluído</option>
               </select>
 
               <div className="flex justify-end gap-2">
