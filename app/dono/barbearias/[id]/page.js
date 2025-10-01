@@ -16,6 +16,14 @@ function TabDados({ barbearia, setBarbearia }) {
   const [cidade, setCidade] = useState(barbearia?.cidade || "");
   const [sobre, setSobre] = useState(barbearia?.sobre || "");
   const [horario, setHorario] = useState(barbearia?.horario || "");
+
+  // ✅ ADIÇÕES
+  const [mapsUrl, setMapsUrl] = useState(barbearia?.maps_url || "");
+  const [ajudaFotoUrl, setAjudaFotoUrl] = useState(
+    barbearia?.ajuda_foto_url || ""
+  );
+  const [uploadingAjuda, setUploadingAjuda] = useState(false);
+
   const [msg, setMsg] = useState("");
 
   const handleSave = async (e) => {
@@ -31,6 +39,7 @@ function TabDados({ barbearia, setBarbearia }) {
         cidade,
         sobre,
         horario,
+        maps_url: mapsUrl,
       })
       .eq("id", barbearia.id);
 
@@ -46,7 +55,82 @@ function TabDados({ barbearia, setBarbearia }) {
         cidade,
         sobre,
         horario,
+        maps_url: mapsUrl,
       });
+    }
+  };
+
+  // ✅ upload da foto de ajuda
+  const handleUploadAjuda = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingAjuda(true);
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${barbearia.id}/ajuda-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("barbearias")
+        .upload(filePath, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("barbearias")
+        .getPublicUrl(filePath);
+
+      const publicUrl = data.publicUrl;
+
+      // grava no banco
+      const { error: dbError } = await supabase
+        .from("barbearias")
+        .update({ ajuda_foto_url: publicUrl })
+        .eq("id", barbearia.id);
+
+      if (dbError) throw dbError;
+
+      setAjudaFotoUrl(publicUrl);
+      setBarbearia({ ...barbearia, ajuda_foto_url: publicUrl });
+      setMsg("✅ Foto de ajuda atualizada!");
+    } catch (err) {
+      console.error(err);
+      setMsg("❌ Erro ao enviar a foto de ajuda.");
+    } finally {
+      setUploadingAjuda(false);
+      e.target.value = "";
+    }
+  };
+
+  // ✅ remover foto de ajuda
+  const handleRemoverAjuda = async () => {
+    if (!ajudaFotoUrl) return;
+
+    try {
+      let path =
+        ajudaFotoUrl.split("/barbearias/")[1] ||
+        ajudaFotoUrl.split("/").slice(-2).join("/");
+
+      if (path) {
+        await supabase.storage.from("barbearias").remove([path]);
+      }
+
+      const { error } = await supabase
+        .from("barbearias")
+        .update({ ajuda_foto_url: null })
+        .eq("id", barbearia.id);
+
+      if (error) throw error;
+
+      setAjudaFotoUrl("");
+      setBarbearia({ ...barbearia, ajuda_foto_url: null });
+      setMsg("✅ Foto de ajuda removida.");
+    } catch (err) {
+      console.error(err);
+      setMsg("❌ Erro ao remover a foto de ajuda.");
     }
   };
 
@@ -97,6 +181,52 @@ function TabDados({ barbearia, setBarbearia }) {
         className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
       />
 
+      {/* ✅ Link do Google Maps */}
+      <input
+        type="text"
+        placeholder="Link do Google Maps (colar a URL do local)"
+        value={mapsUrl}
+        onChange={(e) => setMapsUrl(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+      />
+
+      {/* ✅ Foto de ajuda */}
+      <div className="mt-2 space-y-2">
+        <p className="text-sm text-gray-300">
+          Foto de ajuda (opcional) — aparece no “Sobre” da página pública.
+        </p>
+
+        {ajudaFotoUrl ? (
+          <div className="flex items-center gap-4">
+            <img
+              src={ajudaFotoUrl}
+              alt="Foto de ajuda"
+              className="w-28 h-28 object-cover rounded border border-gray-700"
+            />
+            <button
+              type="button"
+              onClick={handleRemoverAjuda}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded"
+            >
+              Remover foto de ajuda
+            </button>
+          </div>
+        ) : (
+          <label className="inline-block">
+            <span className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg cursor-pointer">
+              {uploadingAjuda ? "Enviando..." : "Escolher foto de ajuda"}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleUploadAjuda}
+              disabled={uploadingAjuda}
+              className="hidden"
+            />
+          </label>
+        )}
+      </div>
+
       <button
         type="submit"
         className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
@@ -118,7 +248,7 @@ function TabDados({ barbearia, setBarbearia }) {
 }
 
 // =======================
-// COMPONENTE TAB FOTOS
+// COMPONENTE TAB FOTOS (SEM ALTERAÇÕES)
 // =======================
 function TabFotos({ barbeariaId }) {
   const [fotos, setFotos] = useState([]);
