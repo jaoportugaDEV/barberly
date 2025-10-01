@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import supabase from "@/lib/supabaseClient";
 
 export default function BarbeariasPage() {
@@ -29,7 +30,7 @@ export default function BarbeariasPage() {
 
     const { data, error } = await supabase
       .from("barbearias")
-      .select("id, nome, endereco, telefone, cidade")
+      .select("id, nome, endereco, telefone, cidade, slug")
       .eq("dono_id", auth.user.id);
 
     if (error) {
@@ -187,6 +188,7 @@ export default function BarbeariasPage() {
               <th className="p-2">Endereço</th>
               <th className="p-2">Telefone</th>
               <th className="p-2">Cidade</th>
+              <th className="p-2">Link Público</th>
               <th className="p-2">Ações</th>
             </tr>
           </thead>
@@ -197,19 +199,28 @@ export default function BarbeariasPage() {
                 <td className="p-2">{b.endereco}</td>
                 <td className="p-2">{b.telefone}</td>
                 <td className="p-2">{b.cidade}</td>
+                <td className="p-2">
+                  <Link
+                    href={`/barbearia/${b.slug}`}
+                    target="_blank"
+                    className="text-blue-400 hover:underline"
+                  >
+                    Ver página
+                  </Link>
+                </td>
                 <td className="p-2 space-x-2">
-                  <button
-                    onClick={() => {
-                      setEditingId(b.id);
-                      setNome(b.nome);
-                      setEndereco(b.endereco);
-                      setTelefone(b.telefone);
-                      setCidade(b.cidade);
-                    }}
+                  <Link
+                    href={`/dono/barbearias/${b.id}`}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
                   >
                     Editar
-                  </button>
+                  </Link>
+                  <Link
+                    href={`/dono/barbearias/${b.id}`}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                  >
+                    Agendamento
+                  </Link>
                   <button
                     onClick={() => handleDelete(b.id)}
                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded"
