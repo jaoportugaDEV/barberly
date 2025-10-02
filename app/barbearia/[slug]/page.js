@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import supabase from "@/lib/supabaseClient";
 
 export default function BarbeariaPublicPage() {
@@ -9,7 +10,6 @@ export default function BarbeariaPublicPage() {
   const slug = params.slug;
   const [barbearia, setBarbearia] = useState(null);
   const [fotos, setFotos] = useState([]);
-  const [barbeiros, setBarbeiros] = useState([]);
   const [lightbox, setLightbox] = useState(null);
 
   // Buscar barbearia
@@ -23,7 +23,6 @@ export default function BarbeariaPublicPage() {
     if (!error && data) {
       setBarbearia(data);
       fetchFotos(data.id);
-      fetchBarbeiros(data.id);
     }
   };
 
@@ -38,18 +37,6 @@ export default function BarbeariaPublicPage() {
     if (!error) setFotos(data || []);
   };
 
-  // Buscar barbeiros
-  const fetchBarbeiros = async (barbeariaId) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, name, foto_url")
-      .eq("barbearia_id", barbeariaId)
-      .eq("role", "barber")
-      .order("name", { ascending: true });
-
-    if (!error) setBarbeiros(data || []);
-  };
-
   useEffect(() => {
     if (slug) fetchBarbearia();
   }, [slug]);
@@ -57,11 +44,10 @@ export default function BarbeariaPublicPage() {
   if (!barbearia) return <p className="p-6 text-gray-400">Carregando...</p>;
 
   return (
-    <div className="text-white bg-black min-h-screen font-sans">
-      {/* adiciona espaçamento no topo e no rodapé */}
-      <div className="max-w-6xl mx-auto px-4 py-12">
+    <div className="text-white bg-gradient-to-b from-neutral-950 via-neutral-900 to-black min-h-screen font-sans">
+      <div className="max-w-6xl mx-auto px-4 py-10">
         
-        {/* GALERIA ESTILO NOONA */}
+        {/* GALERIA DE FOTOS */}
         {fotos.length > 0 && (
           <div className="grid grid-cols-4 gap-2 h-[400px] rounded-xl overflow-hidden">
             <div className="col-span-2 row-span-2">
@@ -100,9 +86,11 @@ export default function BarbeariaPublicPage() {
         )}
 
         {/* CARD PRINCIPAL */}
-        <div className="mt-8 flex items-center justify-between p-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-lg">
+        <div className="mt-8 flex items-center justify-between p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-xl">
           <div>
-            <h1 className="text-3xl font-bold">{barbearia.nome}</h1>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+              {barbearia.nome}
+            </h1>
             <p className="text-gray-300 mt-1">
               {barbearia.endereco}, {barbearia.cidade}
             </p>
@@ -114,61 +102,27 @@ export default function BarbeariaPublicPage() {
             </p>
           </div>
           <div className="flex space-x-3">
-            <button className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg font-semibold shadow-md transition">
-              Marcar
-            </button>
-            <button className="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg font-semibold shadow-md transition">
+            {/* BOTÃO MARCAR → vai para serviços */}
+            <Link href={`/barbearia/${slug}/servicos`}>
+              <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 px-6 py-2 rounded-lg font-semibold shadow-md transition">
+                Marcar
+              </button>
+            </Link>
+
+            <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 px-6 py-2 rounded-lg font-semibold shadow-md transition">
               Favorito
             </button>
-            <button className="bg-gray-800 hover:bg-gray-700 px-5 py-2 rounded-lg font-semibold shadow-md transition">
+            <button className="bg-gray-800 hover:bg-gray-700 px-6 py-2 rounded-lg font-semibold shadow-md transition">
               Mais
             </button>
           </div>
-        </div>
-
-        {/* TABS (link âncora) */}
-        <div className="flex space-x-8 mt-10 border-b border-neutral-800 pb-2 text-lg">
-          <a href="#pessoas" className="hover:text-yellow-500">
-            Pessoas
-          </a>
-          <a href="#sobre" className="hover:text-yellow-500">
-            Sobre
-          </a>
-        </div>
-
-        {/* SEÇÃO PESSOAS */}
-        <div id="pessoas" className="mt-10">
-          <h2 className="text-2xl font-bold text-yellow-500 mb-6">
-            Nossa Equipe
-          </h2>
-          {barbeiros.length === 0 ? (
-            <p className="text-gray-400">Nenhum barbeiro cadastrado.</p>
-          ) : (
-            <div className="flex flex-wrap gap-6">
-              {barbeiros.map((barbeiro) => (
-                <div
-                  key={barbeiro.id}
-                  className="text-center transition-transform hover:scale-105"
-                >
-                  <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border border-gray-700 shadow-md">
-                    <img
-                      src={barbeiro.foto_url || "/placeholder.png"}
-                      alt={barbeiro.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <p className="mt-2 font-medium">{barbeiro.name}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* SEÇÃO SOBRE */}
         <div id="sobre" className="mt-12">
           <h2 className="text-2xl font-bold text-yellow-500 mb-4">Sobre</h2>
 
-          <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800 shadow-lg flex flex-col md:flex-row gap-6">
+          <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10 shadow-lg flex flex-col md:flex-row gap-6">
             {/* Texto / Instagram */}
             <div className="flex-1 text-gray-300">
               {barbearia.sobre ? (
@@ -180,18 +134,12 @@ export default function BarbeariaPublicPage() {
               {barbearia.instagram && (
                 <p className="mt-3 text-sm text-gray-400">
                   Instagram:{" "}
-                  <a
-                    href={barbearia.instagram}
-                    target="_blank"
-                    className="text-blue-400 hover:underline"
-                  >
-                    {barbearia.instagram}
-                  </a>
+                  <span className="font-medium">{barbearia.instagram}</span>
                 </p>
               )}
             </div>
 
-            {/* Imagem de ajuda + link discreto */}
+            {/* Imagem de ajuda */}
             <div className="flex-1">
               {barbearia.ajuda_foto_url && (
                 <div>
@@ -204,9 +152,9 @@ export default function BarbeariaPublicPage() {
                     <a
                       href={barbearia.maps_url}
                       target="_blank"
-                      className="text-blue-400 text-sm hover:underline flex items-center gap-1 mt-2"
+                      className="block text-blue-400 hover:underline text-sm mt-2"
                     >
-                      Instruções <span>📍</span>
+                      Instruções 📍
                     </a>
                   )}
                 </div>

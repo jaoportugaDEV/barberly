@@ -221,6 +221,12 @@ export default function BarbeariasPage() {
                   >
                     Agendamento
                   </Link>
+                  <Link
+                    href={`/dono/barbearias/${b.id}/servicos`}
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                  >
+                    Serviços
+                  </Link>
                   <button
                     onClick={() => handleDelete(b.id)}
                     className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded"
