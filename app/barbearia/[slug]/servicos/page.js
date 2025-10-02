@@ -20,6 +20,7 @@ export default function EscolherServicoPage() {
       setLoading(true);
       setErro("");
 
+      // Buscar barbearia
       const { data: barb, error: errBarb } = await supabase
         .from("barbearias")
         .select("id, nome")
@@ -33,6 +34,7 @@ export default function EscolherServicoPage() {
       }
       setBarbearia(barb);
 
+      // Buscar serviços
       const { data: rows, error: errServ } = await supabase
         .from("services")
         .select("id, name, price, duration_minutes")
@@ -64,8 +66,9 @@ export default function EscolherServicoPage() {
     return `${m} min`;
   };
 
+  // 🚀 Correção: vai para a página de colaboradores
   const goToServico = (id) => {
-    router.push(`/barbearia/${slug}/servicos/${id}`);
+    router.push(`/barbearia/${slug}/servicos/${id}/colaboradores`);
   };
 
   return (

@@ -53,8 +53,13 @@ export default function EscolherColaboradorPage() {
   }, [slug, id]);
 
   const handleEscolha = (colabId) => {
-    // aqui depois levamos para escolher data/hora
-    router.push(`/barbearia/${slug}/servicos/${id}/confirmar?colab=${colabId}`);
+    if (colabId === "qualquer") {
+      // qualquer colaborador
+      router.push(`/barbearia/${slug}/servicos/${id}/colaboradores/any/horarios`);
+    } else {
+      // colaborador específico
+      router.push(`/barbearia/${slug}/servicos/${id}/colaboradores/${colabId}/horarios`);
+    }
   };
 
   return (
