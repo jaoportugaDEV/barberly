@@ -19,12 +19,11 @@ export default function LoginPage() {
     try {
       console.log("➡️ Iniciando login…", { email });
 
+      // 🔹 Faz login no Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: senha,
       });
-
-      console.log("🔎 Resposta do Supabase:", { data, error });
 
       if (error) {
         console.error("❌ Erro no login:", error);
@@ -32,24 +31,43 @@ export default function LoginPage() {
         return;
       }
 
-      if (!data?.user) {
-        console.error("⚠️ Login sem user retornado:", data);
+      const user = data?.user;
+      if (!user) {
         setError("Erro inesperado: usuário não retornado.");
         return;
       }
 
-      // (opcional) conferir sessão imediatamente
-      const { data: sess } = await supabase.auth.getSession();
-      console.log("🟢 Sessão atual:", sess);
+      // 🔹 Busca perfil na tabela profiles
+      const { data: perfil, error: perfilError } = await supabase
+        .from("profiles")
+        .select("id, role, barbearia_id")
+        .eq("id", user.id)
+        .single();
 
-      // força re-render pra middleware/SSR capturar os cookies da sessão
+      if (perfilError || !perfil) {
+        console.error("❌ Erro ao buscar perfil:", perfilError);
+        setError("Não foi possível identificar o tipo de usuário.");
+        return;
+      }
+
+      console.log("🟢 Perfil encontrado:", perfil);
+
+      // 🔹 Redireciona conforme tipo de conta
+      if (perfil.role === "owner") {
+        router.replace("/dono");
+      } else if (perfil.role === "barber") {
+        if (perfil.barbearia_id) {
+          router.replace(`/dashboard/${perfil.barbearia_id}`);
+        } else {
+          alert("⚠️ Nenhuma barbearia atribuída a este barbeiro.");
+          router.replace("/login");
+        }
+      } else {
+        alert("Tipo de usuário desconhecido.");
+      }
+
+      // 🔹 Garante cookies da sessão
       router.refresh();
-
-      // pequena folga pra cookie aplicar (evita “refresh e nada acontece”)
-      await new Promise((r) => setTimeout(r, 150));
-
-      console.log("➡️ Redirecionando para /dashboard…");
-      router.replace("/dashboard");
     } catch (err) {
       console.error("💥 Exceção no handleLogin:", err);
       setError("Ocorreu um erro inesperado ao entrar.");

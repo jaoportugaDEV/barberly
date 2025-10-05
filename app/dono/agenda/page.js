@@ -2,336 +2,325 @@
 
 import { useEffect, useState } from "react";
 import supabase from "@/lib/supabaseClient";
+import dayjs from "dayjs";
+import "dayjs/locale/pt-br";
 
-export default function AgendaPage() {
+export default function AgendaDonoPage() {
   const [agendamentos, setAgendamentos] = useState([]);
-  const [rawAppts, setRawAppts] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [servicos, setServicos] = useState([]);
   const [barbearias, setBarbearias] = useState([]);
+  const [barbeiros, setBarbeiros] = useState([]);
+  const [servicos, setServicos] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const [novoAgendamento, setNovoAgendamento] = useState({
-    cliente_id: "",
-    service_id: "",
+    client_name: "",
     barbearia_id: "",
-    starts_at: "",
-    status: "pendente",
+    barbeiro_id: "",
+    service_id: "",
+    data: "",
+    horario: "",
   });
 
-  const [msg, setMsg] = useState("");
-  const [donoId, setDonoId] = useState(null);
-
-  // Modal edição
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedAppt, setSelectedAppt] = useState(null);
-  const [newStatus, setNewStatus] = useState("pendente");
-
-  // pega dono
+  // 🔹 Carrega as barbearias e colaboradores do dono logado
   useEffect(() => {
-    (async () => {
+    const carregar = async () => {
       const { data: auth } = await supabase.auth.getUser();
-      if (auth?.user) setDonoId(auth.user.id);
-    })();
+      const donoId = auth?.user?.id;
+      if (!donoId) return;
+
+      // Busca barbearias do dono
+      const { data: barbData } = await supabase
+        .from("barbearias")
+        .select("*")
+        .eq("dono_id", donoId);
+
+      setBarbearias(barbData || []);
+
+      // Busca barbeiros dessas barbearias
+      const barbeariaIds = barbData.map((b) => b.id);
+      const { data: barbs } = await supabase
+        .from("profiles")
+        .select("id, name, role, barbearia_id")
+        .or(
+          `barbearia_id.in.(${barbeariaIds.join(",")}),and(id.eq.${donoId},role.eq.owner)`
+        );
+
+      // 🔹 Remover duplicados do dono (caso tenha várias barbearias)
+      const barbeirosUnicos = [];
+      const seen = new Set();
+      for (const b of barbs || []) {
+        if (!seen.has(b.id)) {
+          seen.add(b.id);
+          barbeirosUnicos.push(b);
+        }
+      }
+
+      setBarbeiros(barbeirosUnicos);
+
+      // Busca serviços
+      const { data: servicosData } = await supabase.from("services").select("*");
+      setServicos(servicosData || []);
+
+      await carregarAgendamentos();
+    };
+    carregar();
   }, []);
 
-  // carrega bases
-  useEffect(() => {
-    if (!donoId) return;
-    fetchClientes();
-    fetchServicos();
-    fetchBarbearias();
-  }, [donoId]);
-
-  // busca agendamentos crus
-  useEffect(() => {
-    if (clientes.length === 0) {
-      setRawAppts([]);
-      return;
-    }
-    fetchAgendamentos(clientes.map((c) => c.id));
-  }, [clientes]);
-
-  // enriquece
-  useEffect(() => {
-    const cMap = new Map(clientes.map((c) => [c.id, c]));
-    const sMap = new Map(servicos.map((s) => [s.id, s]));
-    const bMap = new Map(barbearias.map((b) => [b.id, b]));
-
-    setAgendamentos(
-      rawAppts.map((a) => ({
-        ...a,
-        cliente_nome: cMap.get(a.user_id)?.nome ?? "—",
-        service_nome: sMap.get(a.service_id)?.name ?? "—",
-        service_price: sMap.get(a.service_id)?.price ?? 0,
-        barbearia_nome: bMap.get(a.barbearia_id)?.nome ?? "—",
-      }))
-    );
-  }, [rawAppts, clientes, servicos, barbearias]);
-
-  // ---- FETCH ----
-  async function fetchAgendamentos(ids) {
-    const { data, error } = await supabase
-      .from("appointments")
-      .select("id, starts_at, status, user_id, service_id, barbearia_id")
-      .in("user_id", ids)
-      .not("status", "eq", "concluido")
-      .order("starts_at", { ascending: true });
-    if (!error) setRawAppts(data || []);
-  }
-
-  async function fetchClientes() {
+  // 🔄 Carregar agendamentos
+  async function carregarAgendamentos() {
     const { data } = await supabase
-      .from("clientes")
-      .select("id, nome, email, user_id")
-      .eq("user_id", donoId);
-    setClientes(data || []);
+      .from("appointments")
+      .select("*, barbearias(nome), services(name)")
+      .order("starts_at", { ascending: true });
+    setAgendamentos(data || []);
   }
 
-  async function fetchServicos() {
-    const { data } = await supabase.from("services").select("id, name, price");
-    setServicos(data || []);
-  }
+  // 💾 SALVAR AGENDAMENTO MANUAL
+  async function handleSalvarAgendamento() {
+    try {
+      if (
+        !novoAgendamento.client_name ||
+        !novoAgendamento.barbearia_id ||
+        !novoAgendamento.barbeiro_id ||
+        !novoAgendamento.service_id ||
+        !novoAgendamento.data ||
+        !novoAgendamento.horario
+      ) {
+        alert("⚠️ Preencha todos os campos antes de salvar!");
+        return;
+      }
 
-  async function fetchBarbearias() {
-    const { data } = await supabase.from("barbearias").select("id, nome");
-    setBarbearias(data || []);
-  }
+      const dataHoraLocal = new Date(
+        `${novoAgendamento.data}T${novoAgendamento.horario}:00`
+      );
+      const starts_at = dataHoraLocal.toISOString();
 
-  // ---- AÇÕES ----
-  async function handleSave() {
-    if (
-      !novoAgendamento.cliente_id ||
-      !novoAgendamento.service_id ||
-      !novoAgendamento.barbearia_id ||
-      !novoAgendamento.starts_at
-    ) {
-      setMsg("❌ Preencha todos os campos!");
-      return;
-    }
-
-    const { error } = await supabase.from("appointments").insert([
-      {
-        user_id: novoAgendamento.cliente_id,
-        service_id: novoAgendamento.service_id,
+      const agendamento = {
+        client_name: novoAgendamento.client_name,
         barbearia_id: novoAgendamento.barbearia_id,
-        starts_at: novoAgendamento.starts_at,
-        status: novoAgendamento.status,
-      },
-    ]);
+        user_id: novoAgendamento.barbeiro_id,
+        service_id: novoAgendamento.service_id,
+        starts_at,
+        status: "scheduled",
+      };
 
-    if (error) setMsg("❌ Erro ao salvar agendamento.");
-    else {
-      setMsg("✅ Agendamento criado com sucesso!");
+      const { error } = await supabase.from("appointments").insert([agendamento]);
+      if (error) {
+        console.error(error);
+        alert("❌ Erro ao criar agendamento: " + error.message);
+        return;
+      }
+
+      alert("✅ Agendamento criado com sucesso!");
+      setModalOpen(false);
       setNovoAgendamento({
-        cliente_id: "",
-        service_id: "",
+        client_name: "",
         barbearia_id: "",
-        starts_at: "",
-        status: "pendente",
+        barbeiro_id: "",
+        service_id: "",
+        data: "",
+        horario: "",
       });
-      fetchAgendamentos(clientes.map((c) => c.id));
+      await carregarAgendamentos();
+    } catch (err) {
+      console.error(err);
+      alert("⚠️ Erro inesperado: " + err.message);
     }
   }
 
-  async function marcarComoConcluido(id) {
+  // 🗑️ Deletar agendamento
+  async function handleExcluirAgendamento(id) {
+    if (confirm("Deseja realmente excluir este agendamento?")) {
+      await supabase.from("appointments").delete().eq("id", id);
+      await carregarAgendamentos();
+    }
+  }
+
+  // ✅ Confirmar agendamento
+  async function handleConcluirAgendamento(id) {
     await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
-    fetchAgendamentos(clientes.map((c) => c.id));
+    await carregarAgendamentos();
   }
 
-  async function atualizarStatus() {
-    if (!selectedAppt) return;
-    await supabase.from("appointments").update({ status: newStatus }).eq("id", selectedAppt.id);
-    setModalOpen(false);
-    setSelectedAppt(null);
-    fetchAgendamentos(clientes.map((c) => c.id));
+  // 🔧 Agrupar por data
+  const diasDaSemana = [];
+  for (let i = 0; i < 5; i++) {
+    const dia = dayjs().locale("pt-br").add(i, "day");
+    diasDaSemana.push({
+      label: dia.format("dddd, DD/MM"),
+      valor: dia.format("YYYY-MM-DD"),
+    });
   }
 
-  // ---- UI ----
   return (
-    <div className="p-8 bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen text-white">
+    <div className="p-6 bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen text-white">
       <h1 className="text-3xl font-extrabold mb-8 bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
         Agenda do Dono
       </h1>
 
-      {msg && (
-        <div
-          className={`mb-6 px-4 py-2 rounded-lg text-sm font-medium shadow-md ${
-            msg.startsWith("✅")
-              ? "bg-green-500/20 text-green-400 border border-green-500/30"
-              : "bg-red-500/20 text-red-400 border border-red-500/30"
-          }`}
-        >
-          {msg}
-        </div>
-      )}
-
-      {/* Form */}
-      <div className="backdrop-blur-md bg-gray-800/40 p-6 rounded-2xl shadow-lg mb-10 border border-gray-700/50">
-        <h2 className="text-xl font-bold mb-4 text-yellow-400 flex items-center gap-2">
-          <span className="text-yellow-400">➕</span> Novo Agendamento
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <select
-            value={novoAgendamento.cliente_id}
-            onChange={(e) =>
-              setNovoAgendamento({ ...novoAgendamento, cliente_id: e.target.value })
-            }
-            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
-          >
-            <option value="">Selecione Cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome} ({c.email || "sem email"})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={novoAgendamento.service_id}
-            onChange={(e) =>
-              setNovoAgendamento({ ...novoAgendamento, service_id: e.target.value })
-            }
-            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
-          >
-            <option value="">Selecione Serviço</option>
-            {servicos.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} — €{s.price}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={novoAgendamento.barbearia_id}
-            onChange={(e) =>
-              setNovoAgendamento({ ...novoAgendamento, barbearia_id: e.target.value })
-            }
-            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
-          >
-            <option value="">Selecione Barbearia</option>
-            {barbearias.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.nome}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="datetime-local"
-            value={novoAgendamento.starts_at}
-            onChange={(e) =>
-              setNovoAgendamento({ ...novoAgendamento, starts_at: e.target.value })
-            }
-            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
-          />
-
-          <select
-            value={novoAgendamento.status}
-            onChange={(e) => setNovoAgendamento({ ...novoAgendamento, status: e.target.value })}
-            className="p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none"
-          >
-            <option value="pendente">Pendente</option>
-            <option value="confirmado">Confirmado</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-        </div>
-
+      <div className="flex justify-between items-center mb-6">
         <button
-          onClick={handleSave}
-          className="mt-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition"
+          onClick={() => setModalOpen(true)}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 px-5 py-2 rounded-xl font-semibold text-black shadow-lg hover:scale-105 transition"
         >
-          💾 Salvar Agendamento
+          + Novo Agendamento
         </button>
       </div>
 
-      {/* Tabela */}
-      <div className="overflow-hidden rounded-2xl shadow-lg border border-gray-700/50">
-        <table className="w-full">
-          <thead className="bg-gradient-to-r from-gray-700 to-gray-800 text-yellow-400">
-            <tr>
-              <th className="p-3 text-left">Data</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Cliente</th>
-              <th className="p-3">Serviço</th>
-              <th className="p-3">Barbearia</th>
-              <th className="p-3">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-700">
-            {agendamentos.length > 0 ? (
-              agendamentos.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-700/40 transition duration-200">
-                  <td className="p-3">{new Date(a.starts_at).toLocaleString("pt-PT")}</td>
-                  <td className="p-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        a.status === "confirmado"
-                          ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                          : a.status === "cancelado"
-                          ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                          : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                      }`}
-                    >
-                      {a.status}
-                    </span>
-                  </td>
-                  <td className="p-3">{a.cliente_nome}</td>
-                  <td className="p-3">
-                    {a.service_nome} {a.service_price ? `(€${a.service_price})` : ""}
-                  </td>
-                  <td className="p-3">{a.barbearia_nome}</td>
-                  <td className="p-3 flex gap-2">
-                    {a.status !== "concluido" && a.status !== "cancelado" && (
+      {/* 🔹 Grade de dias da semana */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {diasDaSemana.map((dia) => {
+          const ags = agendamentos.filter(
+            (a) => a.starts_at.split("T")[0] === dia.valor
+          );
+          return (
+            <div
+              key={dia.valor}
+              className="bg-gray-800/40 backdrop-blur-md p-4 rounded-xl border border-gray-700/50 shadow-lg"
+            >
+              <h2 className="text-yellow-400 font-bold mb-3 capitalize">
+                {dia.label}
+              </h2>
+
+              {ags.length > 0 ? (
+                ags.map((a) => (
+                  <div
+                    key={a.id}
+                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="font-semibold text-yellow-300">{a.client_name}</p>
+                      <p className="text-sm text-gray-400">
+                        {a.services?.name || "Serviço"} —{" "}
+                        {dayjs(a.starts_at).format("HH:mm")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => marcarComoConcluido(a.id)}
-                        className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 rounded-lg text-white shadow-md transition"
+                        onClick={() => handleConcluirAgendamento(a.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg text-xs"
                       >
-                        ✅ Concluir
+                        ✓
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setSelectedAppt(a);
-                        setNewStatus(a.status);
-                        setModalOpen(true);
-                      }}
-                      className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-lg text-white shadow-md transition"
-                    >
-                      ✏️ Editar
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="p-4 text-center text-gray-400">
-                  Nenhum agendamento encontrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                      <button
+                        onClick={() => handleExcluirAgendamento(a.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg text-xs"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">Sem agendamentos</p>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Modal */}
+      {/* 🔸 Modal de Agendamento Manual */}
       {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-          <div className="bg-gray-900 rounded-xl p-6 w-96 shadow-xl border border-gray-700">
-            <h2 className="text-lg font-bold text-yellow-400 mb-4">
-              Editar Status do Agendamento
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">
+            <h2 className="text-xl font-bold text-yellow-400 mb-4">
+              Novo Agendamento (manual)
             </h2>
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              className="w-full p-3 mb-4 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-yellow-500"
-            >
-              <option value="pendente">Pendente</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="cancelado">Cancelado</option>
-              <option value="concluido">Concluído</option>
-            </select>
-            <div className="flex justify-end gap-2">
+
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="Nome do Cliente"
+                value={novoAgendamento.client_name}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    client_name: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
+
+              <select
+                value={novoAgendamento.barbearia_id}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    barbearia_id: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">-- Selecione a barbearia --</option>
+                {barbearias.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nome}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={novoAgendamento.barbeiro_id}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    barbeiro_id: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">-- Selecione o colaborador --</option>
+                {barbeiros.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.role})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={novoAgendamento.service_id}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    service_id: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">-- Selecione o serviço --</option>
+                {servicos.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="date"
+                value={novoAgendamento.data}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    data: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
+
+              <input
+                type="time"
+                value={novoAgendamento.horario}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    horario: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 mt-5">
               <button
                 onClick={() => setModalOpen(false)}
                 className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition"
@@ -339,7 +328,7 @@ export default function AgendaPage() {
                 Cancelar
               </button>
               <button
-                onClick={atualizarStatus}
+                onClick={handleSalvarAgendamento}
                 className="px-4 py-2 bg-yellow-600 text-black font-semibold rounded-lg hover:bg-yellow-700 transition"
               >
                 Salvar

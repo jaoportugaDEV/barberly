@@ -16,11 +16,12 @@ export default function EscolherColaboradorPage() {
 
   useEffect(() => {
     if (!slug || !id) return;
+
     (async () => {
       setLoading(true);
       setErro("");
 
-      // 1) Buscar barbearia
+      // Buscar barbearia
       const { data: barb, error: errBarb } = await supabase
         .from("barbearias")
         .select("id, nome")
@@ -34,12 +35,13 @@ export default function EscolherColaboradorPage() {
       }
       setBarbearia(barb);
 
-      // 2) Buscar colaboradores (role = barber)
+      // Buscar colaboradores (barbers + owner)
       const { data: perfis, error: errPerfis } = await supabase
         .from("profiles")
-        .select("id, name, foto_url")
+        .select("id, name, foto_url, role")
         .eq("barbearia_id", barb.id)
-        .eq("role", "barber");
+        .in("role", ["barber", "owner"]) // <- incluímos o dono
+        .order("name", { ascending: true });
 
       if (errPerfis) {
         setErro("Erro ao carregar colaboradores.");
@@ -54,10 +56,8 @@ export default function EscolherColaboradorPage() {
 
   const handleEscolha = (colabId) => {
     if (colabId === "qualquer") {
-      // qualquer colaborador
       router.push(`/barbearia/${slug}/servicos/${id}/colaboradores/any/horarios`);
     } else {
-      // colaborador específico
       router.push(`/barbearia/${slug}/servicos/${id}/colaboradores/${colabId}/horarios`);
     }
   };
@@ -65,7 +65,7 @@ export default function EscolherColaboradorPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-white">
       <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* topo */}
+        {/* Cabeçalho */}
         <div className="flex items-center gap-3 mb-6">
           <Link
             href={`/barbearia/${slug}/servicos`}
@@ -80,13 +80,13 @@ export default function EscolherColaboradorPage() {
           </h1>
         </div>
 
-        {/* estados */}
+        {/* Estados */}
         {loading && <p className="text-gray-400">Carregando colaboradores…</p>}
         {!!erro && <p className="text-red-400">{erro}</p>}
 
         {!loading && !erro && (
           <div className="space-y-3">
-            {/* opção qualquer colaborador */}
+            {/* Qualquer colaborador */}
             <button
               onClick={() => handleEscolha("qualquer")}
               className="w-full flex items-center gap-4 p-4 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition"
@@ -99,7 +99,7 @@ export default function EscolherColaboradorPage() {
               <span className="font-medium">Qualquer colaborador</span>
             </button>
 
-            {/* lista colaboradores */}
+            {/* Lista colaboradores */}
             {colaboradores.length === 0 ? (
               <p className="text-gray-400">Nenhum colaborador cadastrado.</p>
             ) : (
@@ -114,7 +114,12 @@ export default function EscolherColaboradorPage() {
                     alt={c.name}
                     className="w-12 h-12 rounded-full object-cover"
                   />
-                  <span className="font-medium">{c.name}</span>
+                  <div>
+                    <p className="font-medium">{c.name}</p>
+                    <p className="text-sm text-gray-400 italic">
+                      {c.role === "owner" ? "Dono" : "Barbeiro"}
+                    </p>
+                  </div>
                 </button>
               ))
             )}

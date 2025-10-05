@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import supabase from "../../lib/supabaseClient";
 
-export default function SignupPage() {
+export default function SignupDonoPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
@@ -15,20 +15,46 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    const { data, error } = await supabase.auth.signUp({
+    // 🔹 Cria o usuário dono
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password: senha,
       options: {
-        data: { name: nome }, // 🔥 manda o nome pros metadados → trigger usa pra criar profiles
+        data: { name: nome },
       },
     });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      router.refresh();
-      router.push("/dashboard");
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
     }
+
+    const user = data?.user;
+    if (!user) {
+      setError("Erro ao obter usuário após criação.");
+      return;
+    }
+
+    // ⏳ Aguarda um pequeno delay para o trigger terminar de criar o profile
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // 🔹 Força a atualização da role do profile
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        name: nome,
+        email: email,
+        role: "owner",
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      setError("Erro ao atualizar role: " + updateError.message);
+      return;
+    }
+
+    alert("✅ Conta de dono criada com sucesso!");
+    router.push("/dono");
   };
 
   return (
@@ -38,7 +64,7 @@ export default function SignupPage() {
           Barberly
         </h1>
         <h2 className="text-xl font-semibold text-white text-center mb-6">
-          Criar Conta
+          Criar Conta de Dono
         </h2>
 
         {error && (
@@ -92,7 +118,7 @@ export default function SignupPage() {
             type="submit"
             className="w-full py-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold rounded-lg transition duration-200"
           >
-            Criar Conta
+            Criar Conta de Dono
           </button>
         </form>
 
