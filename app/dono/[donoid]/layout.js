@@ -10,20 +10,17 @@ import {
   DollarSign,
   Building2,
   Users,
-  Scissors,
   Settings,
   LogOut,
-  Contact,
 } from "lucide-react";
 
+// 🔹 Itens atualizados (sem Clientes e Serviços)
 const nav = [
   { name: "Dashboard", path: "", icon: LayoutDashboard },
   { name: "Agenda", path: "agenda", icon: Calendar },
   { name: "Financeiro", path: "financeiro", icon: DollarSign },
   { name: "Barbearias", path: "barbearias", icon: Building2 },
   { name: "Barbeiros", path: "barbeiros", icon: Users },
-  { name: "Clientes", path: "clientes", icon: Contact },
-  { name: "Serviços", path: "servicos", icon: Scissors },
   { name: "Configurações", path: "configuracoes", icon: Settings },
 ];
 

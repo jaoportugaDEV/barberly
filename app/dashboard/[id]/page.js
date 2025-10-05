@@ -1,382 +1,373 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
+import dayjs from "dayjs";
+import "dayjs/locale/pt-br";
 
-
-export default function DashboardPage() {
-  const [appointments, setAppointments] = useState([]);
-  const [services, setServices] = useState([]);
-  const [barbearias, setBarbearias] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-
-  const [clienteNome, setClienteNome] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [barbeariaId, setBarbeariaId] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+export default function DashboardBarbeiro() {
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [barbearia, setBarbearia] = useState(null);
+  const [servicos, setServicos] = useState([]);
   const [horarios, setHorarios] = useState([]);
-  const [ocupados, setOcupados] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const [barberId, setBarberId] = useState(null);
-  const [barbeariaUserId, setBarbeariaUserId] = useState(null);
-  const [range, setRange] = useState("today");
+  const [novoAgendamento, setNovoAgendamento] = useState({
+    client_name: "",
+    service_id: "",
+    data: "",
+    horario: "",
+  });
 
-  // 🔹 Buscar barbeiro logado
+  // 🔹 Carrega dados do barbeiro (barbearia, serviços e agendamentos)
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const carregarDados = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id;
+      if (!userId) return;
 
-      if (user) {
-        setBarberId(user.id);
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("barbearia_id")
-          .eq("id", user.id)
-          .single();
+      // Perfil do barbeiro
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, name, barbearia_id, role")
+        .eq("id", userId)
+        .single();
 
-        if (prof?.barbearia_id) setBarbeariaUserId(prof.barbearia_id);
-      }
-    };
-    getUser();
-  }, []);
-
-  // 🔹 Buscar barbearias
-  useEffect(() => {
-    const fetchBarbearias = async () => {
-      const { data, error } = await supabase.from("barbearias").select("id, nome");
-      if (error) console.error("Erro ao buscar barbearias:", error);
-      setBarbearias(data || []);
-    };
-    fetchBarbearias();
-  }, []);
-
-  // 🔹 Buscar serviços da barbearia selecionada
-  useEffect(() => {
-    const fetchServicos = async () => {
-      if (!barbeariaId) {
-        setServices([]);
+      if (!profile?.barbearia_id) {
+        console.warn("⚠️ Este barbeiro não tem barbearia atribuída!");
         return;
       }
-      const { data, error } = await supabase
+
+      setBarbearia(profile.barbearia_id);
+
+      // Serviços disponíveis
+      const { data: servicosData } = await supabase
         .from("services")
-        .select("id, name, duration_minutes, price")
-        .eq("barbearia_id", barbeariaId);
-      if (error) console.error("Erro ao buscar serviços:", error);
-      setServices(data || []);
-    };
-    fetchServicos();
-  }, [barbeariaId]);
+        .select("*")
+        .eq("barbearia_id", profile.barbearia_id);
 
-  // 🔹 Buscar agendamentos (lista principal)
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!barberId) return;
-      let query = supabase
-        .from("appointments")
-        .select("id, starts_at, client_name, service_id, barbearia_id")
-        .eq("barber_id", barberId)
-        .order("starts_at", { ascending: true });
+      setServicos(servicosData || []);
 
-      const now = new Date();
-      let start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      let end = new Date(start);
-      end.setDate(end.getDate() + (range === "today" ? 1 : 7));
-
-      query = query.gte("starts_at", start.toISOString()).lt("starts_at", end.toISOString());
-
-      const { data: appts } = await query;
-      const { data: servs } = await supabase.from("services").select("id, name");
-
-      setAppointments(appts || []);
-      setServices(servs || []);
-    };
-    fetchData();
-  }, [barberId, range]);
-
-  // 🔹 Gerar intervalos de 15 minutos
-  function gerarHorarios(inicio = "08:00", fim = "22:00") {
-    const [hIni, mIni] = inicio.split(":").map(Number);
-    const [hFim, mFim] = fim.split(":").map(Number);
-    const inicioMin = hIni * 60 + mIni;
-    const fimMin = hFim * 60 + mFim;
-
-    const result = [];
-    for (let min = inicioMin; min <= fimMin; min += 15) {
-      const h = String(Math.floor(min / 60)).padStart(2, "0");
-      const m = String(min % 60).padStart(2, "0");
-      result.push(`${h}:${m}`);
-    }
-    return result;
-  }
-
-  // 🔹 Buscar horários ocupados (com duração do serviço)
-  useEffect(() => {
-    const buscarOcupados = async () => {
-      if (!selectedDate || !barbeariaId || !barberId) return;
-
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const { data: appts } = await supabase
-        .from("appointments")
-        .select("starts_at, service_id")
-        .eq("barber_id", barberId)
-        .eq("barbearia_id", barbeariaId)
-        .gte("starts_at", startOfDay.toISOString())
-        .lte("starts_at", endOfDay.toISOString());
-
-      if (!appts) return;
-
-      const ocupadosTemp = [];
-      for (const appt of appts) {
-        const servico = services.find((s) => s.id === appt.service_id);
-        const duracao = servico?.duration_minutes || 30;
-        const inicio = new Date(appt.starts_at);
-        const fim = new Date(inicio.getTime() + duracao * 60 * 1000);
-
-        let atual = new Date(inicio);
-        while (atual < fim) {
-          const h = atual.getHours().toString().padStart(2, "0");
-          const m = atual.getMinutes().toString().padStart(2, "0");
-          ocupadosTemp.push(`${h}:${m}`);
-          atual.setMinutes(atual.getMinutes() + 15);
-        }
-      }
-      setOcupados(ocupadosTemp);
+      await carregarAgendamentos(profile.id);
     };
 
-    buscarOcupados();
-  }, [selectedDate, barbeariaId, barberId, services.length]);
-
-  // 🔹 Quando abre modal → gerar horários
-  useEffect(() => {
-    setHorarios(gerarHorarios("08:00", "22:00"));
+    carregarDados();
   }, []);
 
-  // 🔹 Novo agendamento
-  const novoAgendamento = () => {
-    setEditingId(null);
-    setClienteNome("");
-    setServiceId("");
-    setBarbeariaId("");
-    setSelectedDate("");
-    setSelectedTime("");
-    setShowModal(true);
-  };
+  // 🔄 Carrega agendamentos do barbeiro logado
+  async function carregarAgendamentos(barbeiroId) {
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(
+          `
+          id,
+          client_name,
+          starts_at,
+          status,
+          service_id,
+          services(name, duration_minutes)
+        `
+        )
+        .eq("user_id", barbeiroId)
+        .order("starts_at", { ascending: true });
 
-  // 🔹 Salvar agendamento
-  const salvarAgendamento = async (e) => {
-    e.preventDefault();
-    if (!clienteNome || !serviceId || !barbeariaId || !selectedDate || !selectedTime) {
-      alert("Preencha todos os campos!");
-      return;
+      if (error) throw error;
+      setAgendamentos(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar agendamentos:", err);
     }
+  }
 
-    // 🔹 Corrige fuso horário (Portugal ≈ UTC+0 / evitar +1 ao salvar)
-    const dataHora = new Date(`${selectedDate}T${selectedTime}:00`);
-    dataHora.setHours(dataHora.getHours() - 1);
+  // 🔧 Gera horários disponíveis
+  useEffect(() => {
+    const gerarHorarios = async () => {
+      if (!novoAgendamento.data) return;
 
-    const payload = {
-      client_name: clienteNome,
-      service_id: serviceId,
-      barbearia_id: barbeariaId,
-      barber_id: barberId,
-      starts_at: dataHora.toISOString(),
+      const { data: auth } = await supabase.auth.getUser();
+      const barbeiroId = auth?.user?.id;
+      if (!barbeiroId) return;
+
+      const inicio = dayjs("2000-01-01T09:00");
+      const fim = dayjs("2000-01-01T21:00");
+      const interval = 15; // 15 min
+
+      const horariosGerados = [];
+      let atual = inicio;
+
+      while (atual.isBefore(fim)) {
+        horariosGerados.push(atual.format("HH:mm"));
+        atual = atual.add(interval, "minute");
+      }
+
+      // Buscar agendamentos desse barbeiro nesse dia
+      const { data: ags } = await supabase
+        .from("appointments")
+        .select(
+          `
+          starts_at,
+          services(duration_minutes)
+        `
+        )
+        .eq("user_id", barbeiroId)
+        .gte("starts_at", `${novoAgendamento.data}T00:00:00`)
+        .lte("starts_at", `${novoAgendamento.data}T23:59:59`);
+
+      // Gera lista de horários ocupados (cada serviço ocupa blocos de 15min)
+      const ocupados = new Set();
+
+      (ags || []).forEach((a) => {
+        const inicio = dayjs(a.starts_at);
+        const duracao = a.services?.duration_minutes || 30;
+        const blocos = Math.ceil(duracao / 15);
+
+        for (let i = 0; i < blocos; i++) {
+          ocupados.add(inicio.add(i * 15, "minute").format("HH:mm"));
+        }
+      });
+
+      const disponiveis = horariosGerados.map((h) => ({
+        hora: h,
+        ocupado: ocupados.has(h),
+      }));
+
+      setHorarios(disponiveis);
     };
 
-    if (editingId) {
-      await supabase.from("appointments").update(payload).eq("id", editingId);
-    } else {
-      await supabase.from("appointments").insert(payload);
+    gerarHorarios();
+  }, [novoAgendamento.data]);
+
+  // 💾 Criar agendamento manual
+  async function handleSalvarAgendamento() {
+    try {
+      if (
+        !novoAgendamento.client_name ||
+        !novoAgendamento.service_id ||
+        !novoAgendamento.data ||
+        !novoAgendamento.horario
+      ) {
+        alert("⚠️ Preencha todos os campos antes de salvar!");
+        return;
+      }
+
+      const { data: auth } = await supabase.auth.getUser();
+      const barbeiroId = auth?.user?.id;
+      if (!barbeiroId) return;
+
+      const starts_at = new Date(
+        `${novoAgendamento.data}T${novoAgendamento.horario}:00`
+      ).toISOString();
+
+      const agendamento = {
+        client_name: novoAgendamento.client_name,
+        barbearia_id: barbearia,
+        user_id: barbeiroId,
+        service_id: novoAgendamento.service_id,
+        starts_at,
+        status: "scheduled",
+      };
+
+      const { error } = await supabase.from("appointments").insert([agendamento]);
+      if (error) throw error;
+
+      alert("✅ Agendamento criado com sucesso!");
+      setModalOpen(false);
+      setNovoAgendamento({
+        client_name: "",
+        service_id: "",
+        data: "",
+        horario: "",
+      });
+      await carregarAgendamentos(barbeiroId);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Erro ao criar agendamento: " + err.message);
     }
+  }
 
-    setShowModal(false);
+  // 🗑️ Cancelar agendamento
+  async function handleCancelarAgendamento(id) {
+    if (confirm("Cancelar este agendamento?")) {
+      await supabase.from("appointments").delete().eq("id", id);
+      const { data: auth } = await supabase.auth.getUser();
+      await carregarAgendamentos(auth?.user?.id);
+    }
+  }
 
-    const { data: appts } = await supabase
-      .from("appointments")
-      .select("id, starts_at, client_name, service_id, barbearia_id")
-      .eq("barber_id", barberId)
-      .order("starts_at", { ascending: true });
+  // ✅ Concluir agendamento
+  async function handleConcluirAgendamento(id) {
+    await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
+    const { data: auth } = await supabase.auth.getUser();
+    await carregarAgendamentos(auth?.user?.id);
+  }
 
-    setAppointments(appts || []);
-  };
-
-  // 🔹 Editar / Remover
-  const editarAgendamento = (a) => {
-    const localTime = new Date(a.starts_at);
-    localTime.setHours(localTime.getHours() + 1);
-    setEditingId(a.id);
-    setClienteNome(a.client_name);
-    setServiceId(a.service_id);
-    setBarbeariaId(a.barbearia_id);
-    setSelectedDate(localTime.toISOString().split("T")[0]);
-    setSelectedTime(localTime.toISOString().split("T")[1].substring(0, 5));
-    setShowModal(true);
-  };
-
-  const removerAgendamento = async (id) => {
-    if (!confirm("Deseja remover este agendamento?")) return;
-    await supabase.from("appointments").delete().eq("id", id);
-    setAppointments((prev) => prev.filter((a) => a.id !== id));
-  };
+  // 🔧 Agrupar por dias da semana
+  const diasDaSemana = [];
+  for (let i = 0; i < 5; i++) {
+    const dia = dayjs().locale("pt-br").add(i, "day");
+    diasDaSemana.push({
+      label: dia.format("dddd, DD/MM"),
+      valor: dia.format("YYYY-MM-DD"),
+    });
+  }
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">Minha Agenda</h1>
+    <div className="p-6 bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen text-white">
+      <h1 className="text-3xl font-extrabold mb-8 bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+        Dashboard do Barbeiro
+      </h1>
 
-      <div className="flex items-center gap-4 mb-6">
-        <select
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-        >
-          <option value="today">Hoje</option>
-          <option value="week">Semana</option>
-        </select>
+      <div className="flex justify-between items-center mb-6">
         <button
-          onClick={novoAgendamento}
-          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
+          onClick={() => setModalOpen(true)}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 px-5 py-2 rounded-xl font-semibold text-black shadow-lg hover:scale-105 transition"
         >
-          <Plus size={18} /> Novo Agendamento
+          + Novo Agendamento Manual
         </button>
       </div>
 
-      <div className="space-y-3">
-        {appointments.map((a) => {
-          const servico = services.find((s) => s.id === a.service_id);
-          const dataLocal = new Date(a.starts_at);
-          dataLocal.setHours(dataLocal.getHours() + 1);
-
+      {/* 🔹 Grade de dias */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {diasDaSemana.map((dia) => {
+          const ags = agendamentos.filter(
+            (a) => a.starts_at.split("T")[0] === dia.valor
+          );
           return (
-            <div key={a.id} className="p-4 rounded-lg text-white bg-gray-800 flex justify-between items-center">
-              <div>
-                <p className="font-bold">{a.client_name}</p>
-                <p className="text-sm opacity-80">
-                  {servico?.name || "Serviço"} — {dataLocal.toLocaleString("pt-PT", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => editarAgendamento(a)} className="bg-gray-700 hover:bg-gray-600 p-2 rounded">
-                  <Pencil size={16} />
-                </button>
-                <button onClick={() => removerAgendamento(a.id)} className="bg-gray-700 hover:bg-gray-600 p-2 rounded">
-                  <Trash2 size={16} />
-                </button>
-              </div>
+            <div
+              key={dia.valor}
+              className="bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 shadow-lg"
+            >
+              <h2 className="text-yellow-400 font-bold mb-3 capitalize">
+                {dia.label}
+              </h2>
+
+              {ags.length > 0 ? (
+                ags.map((a) => (
+                  <div
+                    key={a.id}
+                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="font-semibold text-yellow-300">{a.client_name}</p>
+                      <p className="text-sm text-gray-400">
+                        {a.services?.name || "Serviço"} —{" "}
+                        {dayjs(a.starts_at).format("HH:mm")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleConcluirAgendamento(a.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg text-xs"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => handleCancelarAgendamento(a.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg text-xs"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">Sem agendamentos</p>
+              )}
             </div>
           );
         })}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4">
-              {editingId ? "Editar Agendamento" : "Novo Agendamento"}
+      {/* 🔸 Modal Novo Agendamento */}
+      {modalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">
+            <h2 className="text-xl font-bold text-yellow-400 mb-4">
+              Novo Agendamento (Manual)
             </h2>
 
-            <form onSubmit={salvarAgendamento} className="space-y-4">
-              <div>
-                <label className="block text-gray-300 mb-1">Nome do Cliente *</label>
-                <input
-                  type="text"
-                  value={clienteNome}
-                  onChange={(e) => setClienteNome(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                  placeholder="Ex: João Silva"
-                />
-              </div>
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="Nome do Cliente"
+                value={novoAgendamento.client_name}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    client_name: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
 
-              {/* Barbearia */}
-              <div>
-                <label className="block text-gray-300 mb-1">Barbearia *</label>
-                <select
-                  value={barbeariaId}
-                  onChange={(e) => setBarbeariaId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                >
-                  <option value="">-- Selecione a barbearia --</option>
-                  {barbearias.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={novoAgendamento.service_id}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    service_id: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">-- Selecione o serviço --</option>
+                {servicos.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
 
-              {/* Serviço */}
-              <div>
-                <label className="block text-gray-300 mb-1">Serviço *</label>
-                <select
-                  value={serviceId}
-                  onChange={(e) => setServiceId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                >
-                  <option value="">Selecione uma barbearia primeiro</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <input
+                type="date"
+                value={novoAgendamento.data}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    data: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              />
 
-              {/* Data */}
-              <div>
-                <label className="block text-gray-300 mb-1">Data *</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                />
-              </div>
+              <select
+                value={novoAgendamento.horario}
+                onChange={(e) =>
+                  setNovoAgendamento({
+                    ...novoAgendamento,
+                    horario: e.target.value,
+                  })
+                }
+                className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
+              >
+                <option value="">-- Selecione o horário --</option>
+                {horarios.map((h) => (
+                  <option
+                    key={h.hora}
+                    value={h.hora}
+                    disabled={h.ocupado}
+                    className={h.ocupado ? "text-red-400" : ""}
+                  >
+                    {h.hora} {h.ocupado ? "— Ocupado" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* Horário */}
-              <div>
-                <label className="block text-gray-300 mb-1">Horário *</label>
-                <select
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-                >
-                  <option value="">-- Selecione o horário --</option>
-                  {horarios.map((hora) => (
-                    <option
-                      key={hora}
-                      value={hora}
-                      disabled={ocupados.includes(hora)}
-                      className={ocupados.includes(hora) ? "text-red-400" : ""}
-                    >
-                      {hora} {ocupados.includes(hora) ? " (ocupado)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg"
-                >
-                  <X size={16} /> Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
-                >
-                  <Save size={16} /> Salvar
-                </button>
-              </div>
-            </form>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSalvarAgendamento}
+                className="px-4 py-2 bg-yellow-600 text-black font-semibold rounded-lg hover:bg-yellow-700 transition"
+              >
+                Salvar
+              </button>
+            </div>
           </div>
         </div>
       )}

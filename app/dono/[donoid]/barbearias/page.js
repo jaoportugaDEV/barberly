@@ -233,12 +233,6 @@ export default function BarbeariasPage() {
                     Editar
                   </Link>
                   <Link
-                    href={`/dono/${params.donoid}/barbearias/${b.id}/agenda`}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
-                  >
-                    Agendamento
-                  </Link>
-                  <Link
                     href={`/dono/${params.donoid}/barbearias/${b.id}/servicos`}
                     className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
                   >
