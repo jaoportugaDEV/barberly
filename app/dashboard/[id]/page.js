@@ -47,6 +47,7 @@ export default function AgendaBarbeiroPage() {
 
       setServicos(servicosData || []);
 
+      // 🔹 Só busca agendamentos "ativos" (sem incluir os concluídos)
       const { data: agData } = await supabase
         .from("appointments")
         .select(`
@@ -57,7 +58,8 @@ export default function AgendaBarbeiroPage() {
           service_id,
           services(name, duration_minutes, price)
         `)
-        .eq("barber_id", barbeiro.id) // ✅ busca pelo barbeiro logado
+        .eq("barber_id", barbeiro.id)
+        .neq("status", "concluido") // ⛔️ NÃO mostrar concluídos
         .order("starts_at", { ascending: true });
 
       setAgendamentos(agData || []);
@@ -66,6 +68,7 @@ export default function AgendaBarbeiroPage() {
     }
   }
 
+  // 🔹 Bloqueia horários conflitantes considerando a duração
   function gerarHorariosDisponiveis() {
     if (!novoAgendamento.data) return { horarios: [], ocupados: [] };
 
@@ -88,13 +91,35 @@ export default function AgendaBarbeiroPage() {
       const inicio = dayjs(ag.starts_at);
       const duracao = ag.services?.duration_minutes || 30;
       const slots = Math.ceil(duracao / 15);
-      for (let i = 0; i <= slots; i++) {
-        const slotHora = inicio.add(i * 15, "minute").format("HH:mm");
-        ocupados.add(slotHora);
+      for (let i = 0; i < slots; i++) {
+        ocupados.add(inicio.add(i * 15, "minute").format("HH:mm"));
       }
     });
 
-    return { horarios, ocupados: Array.from(ocupados) };
+    const servicoSelecionado = servicos.find(
+      (s) => s.id === novoAgendamento.service_id
+    );
+    const duracaoServico = servicoSelecionado?.duration_minutes || 0;
+    const slotsServico = Math.ceil(duracaoServico / 15);
+
+    const ocupadosComConflito = new Set([...ocupados]);
+
+    if (duracaoServico > 0) {
+      horarios.forEach((h) => {
+        const inicio = dayjs(`${dataSelecionada}T${h}`);
+        let conflito = false;
+        for (let i = 0; i < slotsServico; i++) {
+          const slot = inicio.add(i * 15, "minute").format("HH:mm");
+          if (ocupados.has(slot)) {
+            conflito = true;
+            break;
+          }
+        }
+        if (conflito) ocupadosComConflito.add(h);
+      });
+    }
+
+    return { horarios, ocupados: Array.from(ocupadosComConflito) };
   }
 
   const { horarios, ocupados } = gerarHorariosDisponiveis();
@@ -118,11 +143,10 @@ export default function AgendaBarbeiroPage() {
         `${novoAgendamento.data}T${novoAgendamento.horario}:00`
       ).toISOString();
 
-      // ✅ grava também o barber_id (usuário logado)
       const agendamento = {
         client_name: novoAgendamento.client_name,
         barbearia_id: servicoSelecionado.barbearia_id,
-        barber_id: barbeiro.id, // <- campo correto
+        barber_id: barbeiro.id,
         service_id: servicoSelecionado.id,
         starts_at,
         status: "scheduled",
@@ -156,12 +180,13 @@ export default function AgendaBarbeiroPage() {
 
   async function handleConcluirAgendamento(agendamento) {
     try {
+      // Atualiza o status
       await supabase
         .from("appointments")
         .update({ status: "concluido" })
         .eq("id", agendamento.id);
 
-      // 🔹 Insere no financeiro
+      // Insere no financeiro
       const valor = agendamento.services?.price || 0;
       const descricao = agendamento.services?.name || "Serviço";
       const data = new Date().toISOString();
@@ -178,7 +203,7 @@ export default function AgendaBarbeiroPage() {
 
       if (error) throw error;
 
-      // 🔹 Remove da tela imediatamente
+      // Remove da tela
       setAgendamentos((prev) =>
         prev.filter((item) => item.id !== agendamento.id)
       );

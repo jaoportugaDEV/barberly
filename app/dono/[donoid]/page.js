@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import supabase from "@/lib/supabaseClient";
 
 export default function DonoDashboard() {
@@ -9,10 +10,8 @@ export default function DonoDashboard() {
   const [profileMap, setProfileMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  // paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 8; // menos por página para exibir melhor
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +24,7 @@ export default function DonoDashboard() {
         setLoading(false);
         return;
       }
+
       const user = authData.user;
 
       const { data: barbs, error: barbsErr } = await supabase
@@ -38,7 +38,7 @@ export default function DonoDashboard() {
         return;
       }
 
-      if (!barbs || barbs.length === 0) {
+      if (!barbs?.length) {
         setBarbearias([]);
         setLoading(false);
         return;
@@ -76,15 +76,14 @@ export default function DonoDashboard() {
         });
       }
 
+      // buscar serviços e perfis
       if (allServiceIds.size > 0) {
         const { data: services } = await supabase
           .from("services")
           .select("id, name, price")
           .in("id", Array.from(allServiceIds));
         const map = {};
-        (services || []).forEach(
-          (s) => (map[s.id] = { name: s.name, price: s.price })
-        );
+        (services || []).forEach((s) => (map[s.id] = s));
         setServiceMap(map);
 
         results.forEach((r) => {
@@ -93,13 +92,12 @@ export default function DonoDashboard() {
             if (
               (a.status === "confirmado" || a.status === "concluido") &&
               map[a.service_id]
-            ) {
+            )
               total += map[a.service_id].price || 0;
-            }
           });
           r.financeiro.totalGanhos = total;
         });
-      } else setServiceMap({});
+      }
 
       if (allBarberIds.size > 0) {
         const { data: profiles } = await supabase
@@ -109,7 +107,7 @@ export default function DonoDashboard() {
         const map = {};
         (profiles || []).forEach((p) => (map[p.id] = p.name));
         setProfileMap(map);
-      } else setProfileMap({});
+      }
 
       setBarbearias(results);
       setLoading(false);
@@ -141,6 +139,41 @@ export default function DonoDashboard() {
             startIndex + itemsPerPage
           );
           const totalPages = Math.ceil(b.agendamentos.length / itemsPerPage);
+
+          const getStatusLabel = (status) => {
+            switch (status) {
+              case "concluido":
+                return {
+                  text: "Concluído",
+                  style:
+                    "bg-green-500/20 text-green-400 border border-green-500/30",
+                };
+              case "confirmado":
+                return {
+                  text: "Confirmado",
+                  style:
+                    "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+                };
+              case "pendente":
+                return {
+                  text: "Pendente",
+                  style:
+                    "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+                };
+              case "scheduled":
+                return {
+                  text: "Agendado",
+                  style:
+                    "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+                };
+              default:
+                return {
+                  text: status,
+                  style:
+                    "bg-gray-500/20 text-gray-300 border border-gray-500/30",
+                };
+            }
+          };
 
           return (
             <div
@@ -181,59 +214,60 @@ export default function DonoDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedAgendamentos.map((a) => (
-                        <tr key={a.id} className="border-b border-gray-700">
-                          <td className="p-2">
-                            {new Date(a.starts_at).toLocaleString("pt-PT")}
-                          </td>
-                          <td className="p-2">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                a.status === "concluido"
-                                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                                  : a.status === "pendente"
-                                  ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                                  : a.status === "confirmado"
-                                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                                  : "bg-red-500/20 text-red-400 border border-red-500/30"
-                              }`}
-                            >
-                              {a.status}
-                            </span>
-                          </td>
-                          <td className="p-2">
-                            {profileMap[a.barber_id] || a.barber_id || "—"}
-                          </td>
-                          <td className="p-2">
-                            {serviceMap[a.service_id]?.name || a.service_id || "—"}
-                            {serviceMap[a.service_id]?.price
-                              ? ` (€${serviceMap[a.service_id]?.price})`
-                              : ""}
-                          </td>
-                        </tr>
-                      ))}
+                      {paginatedAgendamentos.map((a) => {
+                        const { text, style } = getStatusLabel(a.status);
+                        return (
+                          <tr key={a.id} className="border-b border-gray-700">
+                            <td className="p-2">
+                              {new Date(a.starts_at).toLocaleString("pt-PT")}
+                            </td>
+                            <td className="p-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold ${style}`}
+                              >
+                                {text}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              {profileMap[a.barber_id] || a.barber_id || "—"}
+                            </td>
+                            <td className="p-2">
+                              {serviceMap[a.service_id]?.name || a.service_id}
+                              {serviceMap[a.service_id]?.price
+                                ? ` (€${serviceMap[a.service_id]?.price})`
+                                : ""}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
 
                   {/* Paginação */}
                   {totalPages > 1 && (
-                    <div className="flex justify-end items-center gap-4 mt-4">
+                    <div className="flex justify-end items-center gap-3 mt-4">
                       <button
                         disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        className="p-2 bg-gray-800 rounded-full text-white hover:bg-gray-700 disabled:opacity-40 transition"
                       >
-                        ◀ Anterior
+                        <ChevronLeft className="w-5 h-5" />
                       </button>
+
                       <span className="text-gray-300">
                         Página {currentPage} de {totalPages}
                       </span>
+
                       <button
                         disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50"
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        className="p-2 bg-gray-800 rounded-full text-white hover:bg-gray-700 disabled:opacity-40 transition"
                       >
-                        Próximo ▶
+                        <ChevronRight className="w-5 h-5" />
                       </button>
                     </div>
                   )}
