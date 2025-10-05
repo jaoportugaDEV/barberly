@@ -17,7 +17,6 @@ export default function AgendaBarbeiroPage() {
     horario: "",
   });
 
-  // 🧩 Carrega barbeiro logado
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -26,7 +25,6 @@ export default function AgendaBarbeiroPage() {
     getUser();
   }, []);
 
-  // 🔹 Carrega serviços e agendamentos do barbeiro
   useEffect(() => {
     if (!barbeiro) return;
     carregarServicosEAgendamentos();
@@ -34,7 +32,6 @@ export default function AgendaBarbeiroPage() {
 
   async function carregarServicosEAgendamentos() {
     try {
-      // Buscar barbearia do barbeiro
       const { data: perfil } = await supabase
         .from("profiles")
         .select("barbearia_id")
@@ -43,7 +40,6 @@ export default function AgendaBarbeiroPage() {
 
       const barbeariaId = perfil?.barbearia_id;
 
-      // Buscar serviços dessa barbearia
       const { data: servicosData } = await supabase
         .from("services")
         .select("*")
@@ -51,7 +47,6 @@ export default function AgendaBarbeiroPage() {
 
       setServicos(servicosData || []);
 
-      // Buscar agendamentos desse barbeiro
       const { data: agData } = await supabase
         .from("appointments")
         .select(`
@@ -60,9 +55,9 @@ export default function AgendaBarbeiroPage() {
           starts_at,
           status,
           service_id,
-          services(name, duration_minutes)
+          services(name, duration_minutes, price)
         `)
-        .eq("user_id", barbeiro.id)
+        .eq("barber_id", barbeiro.id) // ✅ busca pelo barbeiro logado
         .order("starts_at", { ascending: true });
 
       setAgendamentos(agData || []);
@@ -71,7 +66,6 @@ export default function AgendaBarbeiroPage() {
     }
   }
 
-  // 🔧 Gera horários e marca ocupados corretamente
   function gerarHorariosDisponiveis() {
     if (!novoAgendamento.data) return { horarios: [], ocupados: [] };
 
@@ -89,14 +83,11 @@ export default function AgendaBarbeiroPage() {
       hora = hora.add(15, "minute");
     }
 
-    // Bloquear horários conforme a duração
     const ocupados = new Set();
-
     agsDoDia.forEach((ag) => {
       const inicio = dayjs(ag.starts_at);
       const duracao = ag.services?.duration_minutes || 30;
       const slots = Math.ceil(duracao / 15);
-
       for (let i = 0; i <= slots; i++) {
         const slotHora = inicio.add(i * 15, "minute").format("HH:mm");
         ocupados.add(slotHora);
@@ -108,7 +99,6 @@ export default function AgendaBarbeiroPage() {
 
   const { horarios, ocupados } = gerarHorariosDisponiveis();
 
-  // 💾 Criar agendamento manual
   async function handleSalvarAgendamento() {
     try {
       if (
@@ -124,16 +114,15 @@ export default function AgendaBarbeiroPage() {
       const servicoSelecionado = servicos.find(
         (s) => s.id === novoAgendamento.service_id
       );
-      const duracao = servicoSelecionado?.duration_minutes || 30;
-
       const starts_at = new Date(
         `${novoAgendamento.data}T${novoAgendamento.horario}:00`
       ).toISOString();
 
+      // ✅ grava também o barber_id (usuário logado)
       const agendamento = {
         client_name: novoAgendamento.client_name,
         barbearia_id: servicoSelecionado.barbearia_id,
-        user_id: barbeiro.id,
+        barber_id: barbeiro.id, // <- campo correto
         service_id: servicoSelecionado.id,
         starts_at,
         status: "scheduled",
@@ -165,12 +154,42 @@ export default function AgendaBarbeiroPage() {
     }
   }
 
-  async function handleConcluirAgendamento(id) {
-    await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
-    await carregarServicosEAgendamentos();
+  async function handleConcluirAgendamento(agendamento) {
+    try {
+      await supabase
+        .from("appointments")
+        .update({ status: "concluido" })
+        .eq("id", agendamento.id);
+
+      // 🔹 Insere no financeiro
+      const valor = agendamento.services?.price || 0;
+      const descricao = agendamento.services?.name || "Serviço";
+      const data = new Date().toISOString();
+
+      const { error } = await supabase.from("financeiro").insert([
+        {
+          barbeiro_id: barbeiro.id,
+          service_id: agendamento.service_id,
+          valor,
+          data,
+          descricao,
+        },
+      ]);
+
+      if (error) throw error;
+
+      // 🔹 Remove da tela imediatamente
+      setAgendamentos((prev) =>
+        prev.filter((item) => item.id !== agendamento.id)
+      );
+
+      alert("💰 Serviço concluído e adicionado ao financeiro!");
+    } catch (err) {
+      console.error("Erro ao concluir:", err);
+      alert("❌ Erro ao concluir agendamento!");
+    }
   }
 
-  // 🔹 Próximos 5 dias
   const diasDaSemana = Array.from({ length: 5 }, (_, i) => {
     const dia = dayjs().locale("pt-br").add(i, "day");
     return {
@@ -194,7 +213,6 @@ export default function AgendaBarbeiroPage() {
         </button>
       </div>
 
-      {/* LISTAGEM */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {diasDaSemana.map((dia) => {
           const ags = agendamentos.filter(
@@ -219,12 +237,17 @@ export default function AgendaBarbeiroPage() {
                         {a.client_name}
                       </p>
                       <p className="text-sm text-gray-400">
-                        {a.services?.name} — {dayjs(a.starts_at).format("HH:mm")}
+                        {a.services?.name} —{" "}
+                        {dayjs(a.starts_at).format("HH:mm")} (
+                        {a.services?.duration_minutes} min)
+                      </p>
+                      <p className="text-sm text-green-400 font-semibold">
+                        💰 €{a.services?.price?.toFixed(2) || "0.00"}
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleConcluirAgendamento(a.id)}
+                        onClick={() => handleConcluirAgendamento(a)}
                         className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg text-xs"
                       >
                         ✓
@@ -246,7 +269,6 @@ export default function AgendaBarbeiroPage() {
         })}
       </div>
 
-      {/* MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
           <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">
@@ -281,7 +303,7 @@ export default function AgendaBarbeiroPage() {
                 <option value="">-- Selecione o serviço --</option>
                 {servicos.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.duration_minutes} min)
+                    {s.name} — €{s.price} ({s.duration_minutes} min)
                   </option>
                 ))}
               </select>
