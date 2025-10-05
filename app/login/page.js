@@ -54,7 +54,7 @@ export default function LoginPage() {
 
       // 🔹 Redireciona conforme tipo de conta
       if (perfil.role === "owner") {
-        router.replace("/dono");
+        router.replace("/dono/[donoid]");
       } else if (perfil.role === "barber") {
         if (perfil.barbearia_id) {
           router.replace(`/dashboard/${perfil.barbearia_id}`);

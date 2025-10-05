@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useParams } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 import Link from "next/link";
 import {
@@ -14,22 +14,23 @@ import {
   Settings,
   LogOut,
   Contact,
-} from "lucide-react"; // 👈 vou usar Contact para Clientes
+} from "lucide-react";
 
 const nav = [
-  { name: "Dashboard", path: "/dono", icon: LayoutDashboard },
-  { name: "Agenda", path: "/dono/agenda", icon: Calendar },
-  { name: "Financeiro", path: "/dono/financeiro", icon: DollarSign },
-  { name: "Barbearias", path: "/dono/barbearias", icon: Building2 },
-  { name: "Barbeiros", path: "/dono/barbeiros", icon: Users },
-  { name: "Clientes", path: "/dono/clientes", icon: Contact }, // 👈 novo item
-  { name: "Serviços", path: "/dono/servicos", icon: Scissors },
-  { name: "Configurações", path: "/dono/configuracoes", icon: Settings },
+  { name: "Dashboard", path: "", icon: LayoutDashboard },
+  { name: "Agenda", path: "agenda", icon: Calendar },
+  { name: "Financeiro", path: "financeiro", icon: DollarSign },
+  { name: "Barbearias", path: "barbearias", icon: Building2 },
+  { name: "Barbeiros", path: "barbeiros", icon: Users },
+  { name: "Clientes", path: "clientes", icon: Contact },
+  { name: "Serviços", path: "servicos", icon: Scissors },
+  { name: "Configurações", path: "configuracoes", icon: Settings },
 ];
 
 export default function DonoLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const params = useParams(); // 👈 captura o donoid dinâmico
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -64,20 +65,27 @@ export default function DonoLayout({ children }) {
         )}
 
         <nav className="flex-1 space-y-2">
-          {nav.map(({ name, path, icon: Icon }) => (
-            <Link
-              key={path}
-              href={path}
-              className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
-                pathname.startsWith(path)
-                  ? "bg-yellow-600 text-black font-semibold"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-yellow-400"
-              }`}
-            >
-              <Icon size={18} />
-              {name}
-            </Link>
-          ))}
+          {nav.map(({ name, path, icon: Icon }) => {
+            const href = `/dono/${params.donoid}/${path}`;
+            const active =
+              pathname === href ||
+              (path === "" && pathname === `/dono/${params.donoid}`);
+
+            return (
+              <Link
+                key={path}
+                href={href}
+                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition ${
+                  active
+                    ? "bg-yellow-600 text-black font-semibold"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-yellow-400"
+                }`}
+              >
+                <Icon size={18} />
+                {name}
+              </Link>
+            );
+          })}
         </nav>
 
         <button

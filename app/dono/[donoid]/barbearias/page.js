@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import supabase from "@/lib/supabaseClient";
 
@@ -15,6 +16,8 @@ export default function BarbeariasPage() {
   const [telefone, setTelefone] = useState("");
   const [cidade, setCidade] = useState("");
   const [editingId, setEditingId] = useState(null);
+
+  const params = useParams(); // 👈 capturamos o donoid da rota
 
   // Carregar barbearias do dono
   const fetchBarbearias = async () => {
@@ -76,6 +79,18 @@ export default function BarbeariasPage() {
         fetchBarbearias();
       }
     } else {
+      // 🔹 Gerar slug único baseado no nome
+      const baseSlug = nome
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
+      // Adiciona 4 caracteres aleatórios no final para garantir unicidade
+      const uniqueSuffix = Math.random().toString(36).substring(2, 6);
+      const slug = `${baseSlug}-${uniqueSuffix}`;
+
       const { error } = await supabase.from("barbearias").insert([
         {
           nome,
@@ -83,10 +98,12 @@ export default function BarbeariasPage() {
           telefone,
           cidade,
           dono_id: auth.user.id,
+          slug,
         },
       ]);
 
       if (error) {
+        console.error(error);
         setMsg("❌ Erro ao criar barbearia.");
       } else {
         setMsg("✅ Barbearia criada com sucesso!");
@@ -210,19 +227,19 @@ export default function BarbeariasPage() {
                 </td>
                 <td className="p-2 space-x-2">
                   <Link
-                    href={`/dono/barbearias/${b.id}`}
+                    href={`/dono/${params.donoid}/barbearias/${b.id}`}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
                   >
                     Editar
                   </Link>
                   <Link
-                    href={`/dono/barbearias/${b.id}`}
+                    href={`/dono/${params.donoid}/barbearias/${b.id}/agenda`}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
                   >
                     Agendamento
                   </Link>
                   <Link
-                    href={`/dono/barbearias/${b.id}/servicos`}
+                    href={`/dono/${params.donoid}/barbearias/${b.id}/servicos`}
                     className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
                   >
                     Serviços

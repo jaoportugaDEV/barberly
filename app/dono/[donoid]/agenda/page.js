@@ -23,7 +23,7 @@ export default function AgendaDonoPage() {
 
   // 🔹 Carrega as barbearias e colaboradores do dono logado
   useEffect(() => {
-    const carregar = async () => {
+    const carregarTudo = async () => {
       const { data: auth } = await supabase.auth.getUser();
       const donoId = auth?.user?.id;
       if (!donoId) return;
@@ -36,46 +36,55 @@ export default function AgendaDonoPage() {
 
       setBarbearias(barbData || []);
 
-      // Busca barbeiros dessas barbearias
-      const barbeariaIds = barbData.map((b) => b.id);
-      const { data: barbs } = await supabase
-        .from("profiles")
-        .select("id, name, role, barbearia_id")
-        .or(
-          `barbearia_id.in.(${barbeariaIds.join(",")}),and(id.eq.${donoId},role.eq.owner)`
-        );
-
-      // 🔹 Remover duplicados do dono (caso tenha várias barbearias)
-      const barbeirosUnicos = [];
-      const seen = new Set();
-      for (const b of barbs || []) {
-        if (!seen.has(b.id)) {
-          seen.add(b.id);
-          barbeirosUnicos.push(b);
-        }
+      // Busca barbeiros das barbearias do dono
+      const barbeariaIds = barbData?.map((b) => b.id) || [];
+      if (barbeariaIds.length > 0) {
+        const { data: barbs } = await supabase
+          .from("profiles")
+          .select("id, name, role, barbearia_id")
+          .in("barbearia_id", barbeariaIds);
+        setBarbeiros(barbs || []);
       }
-
-      setBarbeiros(barbeirosUnicos);
 
       // Busca serviços
       const { data: servicosData } = await supabase.from("services").select("*");
       setServicos(servicosData || []);
 
-      await carregarAgendamentos();
+      // Carrega agendamentos filtrados
+      await carregarAgendamentosFiltrados(donoId);
     };
-    carregar();
+
+    carregarTudo();
   }, []);
 
-  // 🔄 Carregar agendamentos
-  async function carregarAgendamentos() {
-    const { data } = await supabase
-      .from("appointments")
-      .select("*, barbearias(nome), services(name)")
-      .order("starts_at", { ascending: true });
-    setAgendamentos(data || []);
+  // 🔄 Carregar agendamentos SOMENTE das barbearias do dono
+  async function carregarAgendamentosFiltrados(donoId) {
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(
+          `
+          id,
+          client_name,
+          starts_at,
+          status,
+          barbearia_id,
+          service_id,
+          services(name),
+          barbearias!inner(id, nome, dono_id)
+        `
+        )
+        .eq("barbearias.dono_id", donoId)
+        .order("starts_at", { ascending: true });
+
+      if (error) throw error;
+      setAgendamentos(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar agendamentos:", err);
+    }
   }
 
-  // 💾 SALVAR AGENDAMENTO MANUAL
+  // 💾 Criar agendamento manual
   async function handleSalvarAgendamento() {
     try {
       if (
@@ -90,10 +99,9 @@ export default function AgendaDonoPage() {
         return;
       }
 
-      const dataHoraLocal = new Date(
+      const starts_at = new Date(
         `${novoAgendamento.data}T${novoAgendamento.horario}:00`
-      );
-      const starts_at = dataHoraLocal.toISOString();
+      ).toISOString();
 
       const agendamento = {
         client_name: novoAgendamento.client_name,
@@ -105,11 +113,7 @@ export default function AgendaDonoPage() {
       };
 
       const { error } = await supabase.from("appointments").insert([agendamento]);
-      if (error) {
-        console.error(error);
-        alert("❌ Erro ao criar agendamento: " + error.message);
-        return;
-      }
+      if (error) throw error;
 
       alert("✅ Agendamento criado com sucesso!");
       setModalOpen(false);
@@ -121,10 +125,11 @@ export default function AgendaDonoPage() {
         data: "",
         horario: "",
       });
-      await carregarAgendamentos();
+      const { data: auth } = await supabase.auth.getUser();
+      await carregarAgendamentosFiltrados(auth?.user?.id);
     } catch (err) {
       console.error(err);
-      alert("⚠️ Erro inesperado: " + err.message);
+      alert("❌ Erro ao criar agendamento: " + err.message);
     }
   }
 
@@ -132,17 +137,19 @@ export default function AgendaDonoPage() {
   async function handleExcluirAgendamento(id) {
     if (confirm("Deseja realmente excluir este agendamento?")) {
       await supabase.from("appointments").delete().eq("id", id);
-      await carregarAgendamentos();
+      const { data: auth } = await supabase.auth.getUser();
+      await carregarAgendamentosFiltrados(auth?.user?.id);
     }
   }
 
-  // ✅ Confirmar agendamento
+  // ✅ Concluir agendamento
   async function handleConcluirAgendamento(id) {
     await supabase.from("appointments").update({ status: "concluido" }).eq("id", id);
-    await carregarAgendamentos();
+    const { data: auth } = await supabase.auth.getUser();
+    await carregarAgendamentosFiltrados(auth?.user?.id);
   }
 
-  // 🔧 Agrupar por data
+  // 🔧 Agrupar por dias da semana
   const diasDaSemana = [];
   for (let i = 0; i < 5; i++) {
     const dia = dayjs().locale("pt-br").add(i, "day");
@@ -167,7 +174,7 @@ export default function AgendaDonoPage() {
         </button>
       </div>
 
-      {/* 🔹 Grade de dias da semana */}
+      {/* 🔹 Grade de dias */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {diasDaSemana.map((dia) => {
           const ags = agendamentos.filter(
@@ -219,7 +226,7 @@ export default function AgendaDonoPage() {
         })}
       </div>
 
-      {/* 🔸 Modal de Agendamento Manual */}
+      {/* 🔸 Modal Novo Agendamento */}
       {modalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
           <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">
