@@ -6,6 +6,7 @@ import supabase from "@/lib/supabaseClient";
 export default function FinanceiroPage() {
   const [userId, setUserId] = useState(null);
   const [barbeariaIds, setBarbeariaIds] = useState([]);
+  const [barbeirosIds, setBarbeirosIds] = useState([]);
 
   const [agendamentos, setAgendamentos] = useState([]);
   const [total, setTotal] = useState(0);
@@ -21,26 +22,41 @@ export default function FinanceiroPage() {
   // mapa id->nome do barbeiro
   const [barberMap, setBarberMap] = useState({});
 
+  // carregar usuário, barbearias e barbeiros
   useEffect(() => {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) return;
       setUserId(auth.user.id);
 
+      // buscar barbearias do dono
       const { data: barbs } = await supabase
         .from("barbearias")
         .select("id")
         .eq("dono_id", auth.user.id);
 
-      setBarbeariaIds((barbs || []).map((b) => b.id));
+      const barbeariasIds = (barbs || []).map((b) => b.id);
+      setBarbeariaIds(barbeariasIds);
+
+      // buscar barbeiros que trabalham nessas barbearias
+      if (barbeariasIds.length > 0) {
+        const { data: barbsFuncs } = await supabase
+          .from("barbeiros")
+          .select("id")
+          .in("barbearia_id", barbeariasIds);
+
+        setBarbeirosIds((barbsFuncs || []).map((b) => b.id));
+      }
     })();
   }, []);
 
+  // atualizar financeiro quando filtros mudam
   useEffect(() => {
     if (!userId) return;
     fetchFinanceiro();
-  }, [userId, barbeariaIds, mes, ano, dia, meuFinanceiro]);
+  }, [userId, barbeariaIds, barbeirosIds, mes, ano, dia, meuFinanceiro]);
 
+  // buscar dados financeiros
   async function fetchFinanceiro() {
     try {
       let query = supabase
@@ -49,20 +65,31 @@ export default function FinanceiroPage() {
           id,
           starts_at,
           status,
+          user_id,
           barber_id,
           barbearia_id,
-          clientes ( nome ),
+          client_name,
           services ( name, price )
         `)
         .eq("status", "concluido")
         .order("starts_at", { ascending: false });
 
+      // 🟡 Mostrar só do dono (user_id) se for "meu financeiro"
       if (meuFinanceiro) {
-        query = query.eq("barber_id", userId);
+        query = query.or(`user_id.eq.${userId},barber_id.eq.${userId}`);
       } else if (barbeariaIds.length > 0) {
-        query = query.in("barbearia_id", barbeariaIds);
+        // 🟢 Mostrar todos da barbearia (do dono e dos funcionários)
+        const filters = [
+          `barbearia_id.in.(${barbeariaIds.join(",")})`,
+          `user_id.eq.${userId}`,
+        ];
+        if (barbeirosIds.length > 0) {
+          filters.push(`barber_id.in.(${barbeirosIds.join(",")})`);
+        }
+        query = query.or(filters.join(","));
       }
 
+      // aplicar filtros de data
       if (dia) {
         query = query
           .gte("starts_at", `${dia}T00:00:00`)
@@ -88,9 +115,15 @@ export default function FinanceiroPage() {
         (data || []).reduce((acc, a) => acc + (a?.services?.price || 0), 0)
       );
 
+      // carregar nomes dos barbeiros e donos
       const ids = Array.from(
-        new Set((data || []).map((a) => a.barber_id).filter(Boolean))
+        new Set(
+          (data || [])
+            .flatMap((a) => [a.user_id, a.barber_id])
+            .filter(Boolean)
+        )
       );
+
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
@@ -111,6 +144,7 @@ export default function FinanceiroPage() {
     }
   }
 
+  // limpar filtros
   function limparFiltros() {
     setMes("");
     setAno(String(new Date().getFullYear()));
@@ -227,12 +261,16 @@ export default function FinanceiroPage() {
                   <td className="p-3">
                     {new Date(a.starts_at).toLocaleString("pt-PT")}
                   </td>
-                  <td className="p-3">{a.clientes?.nome || "—"}</td>
+                  <td className="p-3">{a.client_name || "—"}</td>
                   <td className="p-3">{a.services?.name || "—"}</td>
                   <td className="p-3 font-semibold text-green-400">
                     €{(a.services?.price ?? 0).toFixed(2)}
                   </td>
-                  <td className="p-3">{barberMap[a.barber_id] || "—"}</td>
+                  <td className="p-3">
+                    {barberMap[a.barber_id] ||
+                      barberMap[a.user_id] ||
+                      "—"}
+                  </td>
                 </tr>
               ))
             ) : (

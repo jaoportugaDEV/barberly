@@ -22,7 +22,7 @@ export default function DonoDashboard() {
     const fetchData = async () => {
       setLoading(true);
       setErr("");
-      setCurrentPage(1); // ✅ volta para a página 1 sempre que mudar o dia
+      setCurrentPage(1);
 
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       if (authErr || !authData?.user) {
@@ -52,16 +52,15 @@ export default function DonoDashboard() {
 
       const results = [];
       const allServiceIds = new Set();
-      const allBarberIds = new Set();
+      const allUserIds = new Set();
 
       for (const barb of barbs) {
-        // 🔹 Filtra agendamentos do dia selecionado
         const inicioDia = new Date(`${dataSelecionada}T00:00:00`).toISOString();
         const fimDia = new Date(`${dataSelecionada}T23:59:59`).toISOString();
 
         const { data: agendamentos } = await supabase
           .from("appointments")
-          .select("id, starts_at, status, service_id, barber_id")
+          .select("id, starts_at, status, service_id, user_id, barber_id")
           .eq("barbearia_id", barb.id)
           .gte("starts_at", inicioDia)
           .lte("starts_at", fimDia)
@@ -69,7 +68,8 @@ export default function DonoDashboard() {
 
         (agendamentos || []).forEach((a) => {
           if (a.service_id) allServiceIds.add(a.service_id);
-          if (a.barber_id) allBarberIds.add(a.barber_id);
+          if (a.user_id) allUserIds.add(a.user_id);
+          else if (a.barber_id) allUserIds.add(a.barber_id); // compatibilidade
         });
 
         let totalGanhos = 0;
@@ -86,6 +86,7 @@ export default function DonoDashboard() {
         });
       }
 
+      // 🔹 Mapear serviços
       if (allServiceIds.size > 0) {
         const { data: services } = await supabase
           .from("services")
@@ -109,11 +110,13 @@ export default function DonoDashboard() {
         });
       } else setServiceMap({});
 
-      if (allBarberIds.size > 0) {
+      // 🔹 Mapear barbeiros (usando user_id)
+      if (allUserIds.size > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, name")
-          .in("id", Array.from(allBarberIds));
+          .in("id", Array.from(allUserIds));
+
         const map = {};
         (profiles || []).forEach((p) => (map[p.id] = p.name));
         setProfileMap(map);
@@ -124,7 +127,7 @@ export default function DonoDashboard() {
     };
 
     fetchData();
-  }, [dataSelecionada]); // ✅ Recarrega quando o dia muda
+  }, [dataSelecionada]);
 
   function mudarDia(direcao) {
     const novaData = new Date(dataSelecionada);
@@ -141,7 +144,7 @@ export default function DonoDashboard() {
         Dashboard do Dono
       </h1>
 
-      {/* 🔹 Controles de data */}
+      {/* Controles de data */}
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => mudarDia(-1)}
@@ -224,7 +227,7 @@ export default function DonoDashboard() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-gray-700">
-                        <th className="p-2">Data</th>
+                        <th className="p-2">Hora</th>
                         <th className="p-2">Status</th>
                         <th className="p-2">Barbeiro</th>
                         <th className="p-2">Serviço</th>
@@ -255,10 +258,12 @@ export default function DonoDashboard() {
                             </span>
                           </td>
                           <td className="p-2">
-                            {profileMap[a.barber_id] || a.barber_id || "—"}
+                            {profileMap[a.user_id] ||
+                              profileMap[a.barber_id] ||
+                              "—"}
                           </td>
                           <td className="p-2">
-                            {serviceMap[a.service_id]?.name || a.service_id || "—"}
+                            {serviceMap[a.service_id]?.name || "—"}
                             {serviceMap[a.service_id]?.price
                               ? ` (€${serviceMap[a.service_id]?.price})`
                               : ""}
