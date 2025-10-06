@@ -53,7 +53,7 @@ export default function AgendaDonoPage() {
     carregarDadosIniciais();
   }, []);
 
-  // 🔄 Carregar agendamentos
+  // 🔄 Carregar agendamentos — APENAS os do próprio dono
   async function carregarAgendamentos(donoId) {
     const { data, error } = await supabase
       .from("appointments")
@@ -69,6 +69,7 @@ export default function AgendaDonoPage() {
         barbearias!inner(id, nome, dono_id)
       `)
       .eq("barbearias.dono_id", donoId)
+      .eq("user_id", donoId) // ✅ mostra só os agendamentos do dono
       .order("starts_at", { ascending: true });
 
     if (error) console.error("Erro ao carregar agendamentos:", error);
