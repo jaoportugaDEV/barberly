@@ -25,6 +25,8 @@
     "react-dom": "19.1.0",
     "react-easy-crop": "^5.5.2",
     "recharts": "^3.2.1",
+    "sass": "^1.93.2",
+    "sweetalert2": "^11.25.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
