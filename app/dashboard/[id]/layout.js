@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  ShoppingCart, // 🆕 Import do ícone
 } from "lucide-react";
 import Link from "next/link";
 
@@ -36,10 +37,11 @@ export default function DashboardLayout({ children }) {
     router.push("/login");
   };
 
-  // 🔹 Navegação atualizada
+  // 🔹 Navegação atualizada (adicionamos "Vender Produto")
   const nav = [
-    { name: "Agenda", path: "/dashboard/[id]", icon: Calendar }, // <- agenda principal (page.js azul)
+    { name: "Agenda", path: "/dashboard/[id]", icon: Calendar },
     { name: "Financeiro", path: "/dashboard/[id]/financeiro", icon: DollarSign },
+    { name: "Vender Produto", path: "/dashboard/[id]/vendas", icon: ShoppingCart }, // 🆕 Novo item
     { name: "Configurações", path: "/dashboard/[id]/configuracoes", icon: Settings },
   ];
 
