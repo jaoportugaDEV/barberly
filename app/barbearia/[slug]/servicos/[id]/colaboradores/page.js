@@ -21,36 +21,42 @@ export default function EscolherColaboradorPage() {
       setLoading(true);
       setErro("");
 
-      // Buscar barbearia
-      const { data: barb, error: errBarb } = await supabase
-        .from("barbearias")
-        .select("id, nome")
-        .eq("slug", slug)
-        .single();
+      try {
+        // 🔹 Buscar barbearia
+        const { data: barb, error: errBarb } = await supabase
+          .from("barbearias")
+          .select("id, nome")
+          .eq("slug", slug)
+          .single();
 
-      if (errBarb || !barb) {
-        setErro("Não foi possível carregar a barbearia.");
+        if (errBarb || !barb) {
+          setErro("Não foi possível carregar a barbearia.");
+          setLoading(false);
+          return;
+        }
+        setBarbearia(barb);
+
+        // 🔹 Buscar colaboradores (barbeiros + dono colaborador)
+        const { data: perfis, error: errPerfis } = await supabase
+          .from("profiles")
+          .select("id, name, foto_url, role, is_colaborador")
+          .eq("barbearia_id", barb.id)
+          .or("role.eq.barber,and(role.eq.owner,is_colaborador.eq.true)") // 👈 lógica principal
+          .order("name", { ascending: true });
+
+        if (errPerfis) {
+          setErro("Erro ao carregar colaboradores.");
+          setLoading(false);
+          return;
+        }
+
+        setColaboradores(perfis || []);
+      } catch (e) {
+        console.error(e);
+        setErro("Erro inesperado ao carregar colaboradores.");
+      } finally {
         setLoading(false);
-        return;
       }
-      setBarbearia(barb);
-
-      // Buscar colaboradores (barbers + owner)
-      const { data: perfis, error: errPerfis } = await supabase
-        .from("profiles")
-        .select("id, name, foto_url, role")
-        .eq("barbearia_id", barb.id)
-        .in("role", ["barber", "owner"]) // <- incluímos o dono
-        .order("name", { ascending: true });
-
-      if (errPerfis) {
-        setErro("Erro ao carregar colaboradores.");
-        setLoading(false);
-        return;
-      }
-
-      setColaboradores(perfis || []);
-      setLoading(false);
     })();
   }, [slug, id]);
 
@@ -99,7 +105,7 @@ export default function EscolherColaboradorPage() {
               <span className="font-medium">Qualquer colaborador</span>
             </button>
 
-            {/* Lista colaboradores */}
+            {/* Lista de colaboradores */}
             {colaboradores.length === 0 ? (
               <p className="text-gray-400">Nenhum colaborador cadastrado.</p>
             ) : (
@@ -115,9 +121,9 @@ export default function EscolherColaboradorPage() {
                     className="w-12 h-12 rounded-full object-cover"
                   />
                   <div>
-                    <p className="font-medium">{c.name}</p>
+                    <p className="font-medium capitalize">{c.name}</p>
                     <p className="text-sm text-gray-400 italic">
-                      {c.role === "owner" ? "Dono" : "Barbeiro"}
+                      {c.role === "owner" ? "Dono (colaborador)" : "Barbeiro"}
                     </p>
                   </div>
                 </button>

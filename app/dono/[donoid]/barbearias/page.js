@@ -17,9 +17,14 @@ export default function BarbeariasPage() {
   const [cidade, setCidade] = useState("");
   const [editingId, setEditingId] = useState(null);
 
-  const params = useParams(); // 👈 capturamos o donoid da rota
+  const [isColaborador, setIsColaborador] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [barbeariaSelecionada, setBarbeariaSelecionada] = useState("");
+  const [loadingColab, setLoadingColab] = useState(true);
 
-  // Carregar barbearias do dono
+  const params = useParams(); // donoid
+
+  // 🔹 Carregar barbearias
   const fetchBarbearias = async () => {
     setLoading(true);
     setMsg("");
@@ -36,19 +41,84 @@ export default function BarbeariasPage() {
       .select("id, nome, endereco, telefone, cidade, slug")
       .eq("dono_id", auth.user.id);
 
-    if (error) {
-      setMsg("❌ Erro ao carregar barbearias");
-    } else {
-      setBarbearias(data || []);
-    }
+    if (error) setMsg("❌ Erro ao carregar barbearias");
+    else setBarbearias(data || []);
     setLoading(false);
+  };
+
+  // 🔹 Carregar status colaborador e barbearia escolhida
+  const fetchColaboradorData = async () => {
+    setLoadingColab(true);
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) return;
+
+    setUserId(auth.user.id);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("is_colaborador, barbearia_id")
+      .eq("id", auth.user.id)
+      .single();
+
+    if (!error && data) {
+      setIsColaborador(data.is_colaborador);
+      setBarbeariaSelecionada(data.barbearia_id || "");
+    }
+    setLoadingColab(false);
   };
 
   useEffect(() => {
     fetchBarbearias();
+    fetchColaboradorData();
   }, []);
 
-  // Criar/atualizar barbearia
+  // 🔹 Alternar colaborador
+  const toggleColaborador = async () => {
+    const novoValor = !isColaborador;
+    setIsColaborador(novoValor);
+
+    let updateData = { is_colaborador: novoValor };
+
+    // se desativar o modo colaborador, limpa o barbearia_id
+    if (!novoValor) {
+      updateData.barbearia_id = null;
+      setBarbeariaSelecionada("");
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", userId);
+
+    if (error) {
+      setMsg("❌ Erro ao atualizar status de colaborador.");
+    } else {
+      setMsg(
+        novoValor
+          ? "✅ Modo colaborador ativado. Escolha a barbearia."
+          : "⚠️ Modo colaborador desativado."
+      );
+    }
+  };
+
+  // 🔹 Atualizar barbearia escolhida
+  const handleSelecionarBarbearia = async (e) => {
+    const novaBarbearia = e.target.value;
+    setBarbeariaSelecionada(novaBarbearia);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ barbearia_id: novaBarbearia })
+      .eq("id", userId);
+
+    if (error) {
+      setMsg("❌ Erro ao definir barbearia colaboradora.");
+    } else {
+      setMsg("✅ Barbearia definida como colaboradora!");
+    }
+  };
+
+  // 🔹 Criar/editar barbearia
   const handleSave = async (e) => {
     e.preventDefault();
     setMsg("");
@@ -71,15 +141,13 @@ export default function BarbeariasPage() {
         .eq("id", editingId)
         .eq("dono_id", auth.user.id);
 
-      if (error) {
-        setMsg("❌ Erro ao atualizar barbearia.");
-      } else {
+      if (error) setMsg("❌ Erro ao atualizar barbearia.");
+      else {
         setMsg("✅ Barbearia atualizada!");
         resetForm();
         fetchBarbearias();
       }
     } else {
-      // 🔹 Gerar slug único baseado no nome
       const baseSlug = nome
         .toLowerCase()
         .normalize("NFD")
@@ -87,7 +155,6 @@ export default function BarbeariasPage() {
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "");
 
-      // Adiciona 4 caracteres aleatórios no final para garantir unicidade
       const uniqueSuffix = Math.random().toString(36).substring(2, 6);
       const slug = `${baseSlug}-${uniqueSuffix}`;
 
@@ -113,15 +180,14 @@ export default function BarbeariasPage() {
     }
   };
 
-  // Excluir barbearia
+  // 🔹 Excluir barbearia
   const handleDelete = async (id) => {
     if (!confirm("Tem certeza que deseja excluir esta barbearia?")) return;
 
     const { error } = await supabase.from("barbearias").delete().eq("id", id);
 
-    if (error) {
-      setMsg("❌ Erro ao excluir barbearia.");
-    } else {
+    if (error) setMsg("❌ Erro ao excluir barbearia.");
+    else {
       setMsg("✅ Barbearia excluída!");
       fetchBarbearias();
     }
@@ -137,9 +203,64 @@ export default function BarbeariasPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-yellow-500 mb-6">
-        Minhas Barbearias
-      </h1>
+      {/* Cabeçalho e switch */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
+        <h1 className="text-3xl font-bold text-yellow-500">
+          Minhas Barbearias
+        </h1>
+
+        {!loadingColab && (
+          <div className="flex items-center gap-4 bg-gray-900 border border-gray-700 px-4 py-2 rounded-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-gray-300 text-sm font-medium">
+                Sou também colaborador
+              </span>
+              <button
+                onClick={toggleColaborador}
+                className={`w-14 h-7 flex items-center rounded-full p-1 transition ${
+                  isColaborador ? "bg-green-500" : "bg-gray-600"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 bg-white rounded-full shadow-md transform transition ${
+                    isColaborador ? "translate-x-7" : "translate-x-0"
+                  }`}
+                ></div>
+              </button>
+            </div>
+
+            {isColaborador && (
+              <select
+                value={barbeariaSelecionada}
+                onChange={handleSelecionarBarbearia}
+                className="bg-gray-800 border border-gray-700 text-white px-3 py-1 rounded-lg text-sm"
+              >
+                <option value="">Selecionar barbearia</option>
+                {barbearias.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nome}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mensagem de status */}
+      {!!msg && (
+        <p
+          className={`mb-4 text-sm font-semibold ${
+            msg.startsWith("✅")
+              ? "text-green-400"
+              : msg.startsWith("⚠️")
+              ? "text-yellow-400"
+              : "text-red-400"
+          }`}
+        >
+          {msg}
+        </p>
+      )}
 
       {/* Formulário */}
       <form
@@ -182,17 +303,7 @@ export default function BarbeariasPage() {
         </button>
       </form>
 
-      {!!msg && (
-        <p
-          className={`mb-4 text-sm font-semibold ${
-            msg.startsWith("✅") ? "text-green-400" : "text-red-400"
-          }`}
-        >
-          {msg}
-        </p>
-      )}
-
-      {/* Lista */}
+      {/* Lista de barbearias */}
       {loading ? (
         <p className="text-gray-400">Carregando barbearias...</p>
       ) : barbearias.length === 0 ? (

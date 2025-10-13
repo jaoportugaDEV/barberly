@@ -10,7 +10,6 @@ import {
   DollarSign,
   Building2,
   Users,
-  Settings,
   LogOut,
   Package,
   PlusSquare,
@@ -35,8 +34,11 @@ export default function DonoLayout({ children }) {
   useEffect(() => {
     const checkUser = async () => {
       const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) router.push("/login");
-      else setUser(data.user);
+      if (error || !data?.user) {
+        router.push("/login");
+      } else {
+        setUser(data.user);
+      }
     };
     checkUser();
   }, [router]);
@@ -71,7 +73,7 @@ export default function DonoLayout({ children }) {
     { name: "Histórico de Vendas", path: "historico-vendas", icon: LineChart },
   ];
 
-  // 🔸 Submenu Financeiro (apenas Financeiro Geral)
+  // 🔸 Submenu Financeiro
   const financeiroSubnav = [
     { name: "Financeiro Geral", path: "financeiro", icon: DollarSign },
   ];
@@ -187,7 +189,7 @@ export default function DonoLayout({ children }) {
             )}
           </div>
 
-          {/* Grupo Financeiro (somente geral) */}
+          {/* Grupo Financeiro */}
           <div className="mt-4">
             <button
               onClick={() => toggleMenu("financeiro")}
@@ -196,7 +198,11 @@ export default function DonoLayout({ children }) {
               <span className="flex items-center gap-3 font-semibold">
                 <DollarSign size={18} /> Financeiro
               </span>
-              {openMenus.financeiro ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {openMenus.financeiro ? (
+                <ChevronDown size={16} />
+              ) : (
+                <ChevronRight size={16} />
+              )}
             </button>
 
             {openMenus.financeiro && (
@@ -222,18 +228,6 @@ export default function DonoLayout({ children }) {
               </div>
             )}
           </div>
-
-          {/* Configurações */}
-          <Link
-            href={`/dono/${params.donoid}/configuracoes`}
-            className={`flex items-center gap-3 px-4 py-2 mt-4 rounded-lg transition ${
-              pathname === `/dono/${params.donoid}/configuracoes`
-                ? "bg-yellow-600 text-black font-semibold"
-                : "text-gray-300 hover:bg-gray-800 hover:text-yellow-400"
-            }`}
-          >
-            <Settings size={18} /> Configurações
-          </Link>
         </nav>
 
         {/* Botão de sair */}
