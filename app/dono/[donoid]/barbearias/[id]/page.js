@@ -15,20 +15,32 @@ function TabDados({ barbearia, setBarbearia }) {
   const [telefone, setTelefone] = useState(barbearia?.telefone || "");
   const [cidade, setCidade] = useState(barbearia?.cidade || "");
   const [sobre, setSobre] = useState(barbearia?.sobre || "");
-  const [horario, setHorario] = useState(barbearia?.horario || "");
-
-  // ✅ ADIÇÕES
   const [mapsUrl, setMapsUrl] = useState(barbearia?.maps_url || "");
-  const [ajudaFotoUrl, setAjudaFotoUrl] = useState(
-    barbearia?.ajuda_foto_url || ""
-  );
-  const [uploadingAjuda, setUploadingAjuda] = useState(false);
 
+  // 🔹 horários de funcionamento
+  const [horaAbertura, setHoraAbertura] = useState(
+    barbearia?.horario_abertura?.slice(0, 5) || "09:00"
+  );
+  const [horaFechamento, setHoraFechamento] = useState(
+    barbearia?.horario_fechamento?.slice(0, 5) || "18:00"
+  );
+
+  const [ajudaFotoUrl, setAjudaFotoUrl] = useState(barbearia?.ajuda_foto_url || "");
+  const [uploadingAjuda, setUploadingAjuda] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // =======================
+  // SALVAR DADOS
+  // =======================
   const handleSave = async (e) => {
     e.preventDefault();
     setMsg("");
+
+    // 🧠 validação simples
+    if (horaFechamento <= horaAbertura) {
+      setMsg("❌ O horário de fechamento deve ser depois do horário de abertura.");
+      return;
+    }
 
     const { error } = await supabase
       .from("barbearias")
@@ -38,8 +50,9 @@ function TabDados({ barbearia, setBarbearia }) {
         telefone,
         cidade,
         sobre,
-        horario,
         maps_url: mapsUrl,
+        horario_abertura: horaAbertura,
+        horario_fechamento: horaFechamento,
       })
       .eq("id", barbearia.id);
 
@@ -54,13 +67,16 @@ function TabDados({ barbearia, setBarbearia }) {
         telefone,
         cidade,
         sobre,
-        horario,
         maps_url: mapsUrl,
+        horario_abertura: horaAbertura,
+        horario_fechamento: horaFechamento,
       });
     }
   };
 
-  // ✅ upload da foto de ajuda
+  // =======================
+  // UPLOAD DA FOTO DE AJUDA
+  // =======================
   const handleUploadAjuda = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -79,13 +95,9 @@ function TabDados({ barbearia, setBarbearia }) {
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from("barbearias")
-        .getPublicUrl(filePath);
-
+      const { data } = supabase.storage.from("barbearias").getPublicUrl(filePath);
       const publicUrl = data.publicUrl;
 
-      // grava no banco
       const { error: dbError } = await supabase
         .from("barbearias")
         .update({ ajuda_foto_url: publicUrl })
@@ -105,7 +117,9 @@ function TabDados({ barbearia, setBarbearia }) {
     }
   };
 
-  // ✅ remover foto de ajuda
+  // =======================
+  // REMOVER FOTO DE AJUDA
+  // =======================
   const handleRemoverAjuda = async () => {
     if (!ajudaFotoUrl) return;
 
@@ -134,6 +148,9 @@ function TabDados({ barbearia, setBarbearia }) {
     }
   };
 
+  // =======================
+  // FORMULÁRIO
+  // =======================
   return (
     <form
       onSubmit={handleSave}
@@ -173,15 +190,33 @@ function TabDados({ barbearia, setBarbearia }) {
         onChange={(e) => setSobre(e.target.value)}
         className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white min-h-[100px]"
       />
-      <input
-        type="text"
-        placeholder="Horário de funcionamento"
-        value={horario}
-        onChange={(e) => setHorario(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
 
-      {/* ✅ Link do Google Maps */}
+      {/* 🔹 Horários */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <label className="block text-sm text-gray-300 mb-1">Abertura</label>
+          <input
+            type="time"
+            value={horaAbertura}
+            onChange={(e) => setHoraAbertura(e.target.value)}
+            step="900"
+            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          />
+        </div>
+
+        <div className="flex-1">
+          <label className="block text-sm text-gray-300 mb-1">Fechamento</label>
+          <input
+            type="time"
+            value={horaFechamento}
+            onChange={(e) => setHoraFechamento(e.target.value)}
+            step="900"
+            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+          />
+        </div>
+      </div>
+
+      {/* 🔹 Link do Google Maps */}
       <input
         type="text"
         placeholder="Link do Google Maps (colar a URL do local)"
@@ -190,7 +225,7 @@ function TabDados({ barbearia, setBarbearia }) {
         className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
       />
 
-      {/* ✅ Foto de ajuda */}
+      {/* 🔹 Foto de ajuda */}
       <div className="mt-2 space-y-2">
         <p className="text-sm text-gray-300">
           Foto de ajuda (opcional) — aparece no “Sobre” da página pública.
@@ -248,20 +283,18 @@ function TabDados({ barbearia, setBarbearia }) {
 }
 
 // =======================
-// COMPONENTE TAB FOTOS (SEM ALTERAÇÕES)
+// COMPONENTE TAB FOTOS
 // =======================
 function TabFotos({ barbeariaId }) {
   const [fotos, setFotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [lightbox, setLightbox] = useState(null);
 
-  // Crop states
   const [cropSrc, setCropSrc] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  // Buscar fotos
   const fetchFotos = async () => {
     const { data, error } = await supabase
       .from("barbearia_fotos")
@@ -276,7 +309,6 @@ function TabFotos({ barbeariaId }) {
     if (barbeariaId) fetchFotos();
   }, [barbeariaId]);
 
-  // Upload com crop
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -299,9 +331,7 @@ function TabFotos({ barbeariaId }) {
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from("barbearias")
-        .getPublicUrl(fileName);
+      const { data } = supabase.storage.from("barbearias").getPublicUrl(fileName);
 
       await supabase
         .from("barbearia_fotos")
@@ -316,7 +346,6 @@ function TabFotos({ barbeariaId }) {
     }
   };
 
-  // Excluir fotos
   const handleDelete = async (id, url) => {
     if (!confirm("Excluir esta foto?")) return;
 
