@@ -73,7 +73,7 @@ export default function EscolherHorarioPage() {
 
       if (errAg) throw new Error("Erro ao carregar agendamentos");
 
-      // 🔹 Buscar durações de todos serviços usados
+      // 🔹 Buscar durações dos serviços agendados
       const servicoIds = [...new Set(agends.map((a) => a.service_id))];
       let duracoes = {};
       if (servicoIds.length > 0) {
@@ -87,7 +87,7 @@ export default function EscolherHorarioPage() {
         });
       }
 
-      // 🔹 Buscar IDs de barbeiros da barbearia
+      // 🔹 Buscar IDs dos barbeiros
       const { data: barbeiros } = await supabase
         .from("profiles")
         .select("id")
@@ -96,7 +96,7 @@ export default function EscolherHorarioPage() {
 
       const idsBarbeiros = barbeiros?.map((b) => b.id) || [];
 
-      // 🔹 Criar mapa de horários ocupados por barbeiro (com duração)
+      // 🔹 Criar mapa de horários ocupados
       const mapaBarbeiros = {};
       for (const b of idsBarbeiros) mapaBarbeiros[b] = new Set();
 
@@ -117,7 +117,6 @@ export default function EscolherHorarioPage() {
 
       // 🔹 Determinar horários ocupados
       let ocupadosCalc = [];
-
       if (colabId === "any") {
         ocupadosCalc = slots.filter((hora) =>
           idsBarbeiros.every((b) => mapaBarbeiros[b]?.has(hora))
@@ -126,17 +125,14 @@ export default function EscolherHorarioPage() {
         ocupadosCalc = Array.from(mapaBarbeiros[colabId] || []);
       }
 
-      // 🔹 Ajuste extra: remover horários que colidem pelo tempo do serviço escolhido
+      // 🔹 Ajustar ocupados conforme duração do serviço
       const ocupadosComDuracao = new Set([...ocupadosCalc]);
-
       for (const hora of slots) {
         const [h, m] = hora.split(":").map(Number);
         const inicio = new Date(selectedDate);
         inicio.setHours(h, m, 0, 0);
-
         const fim = new Date(inicio.getTime() + duracaoServico * 60000);
 
-        // verificar se algum bloco dentro da duração toca um ocupado
         let sobrepoe = false;
         let atual = new Date(inicio);
         while (atual < fim) {
@@ -162,7 +158,7 @@ export default function EscolherHorarioPage() {
     }
   }
 
-  // Gera horários a cada 15min
+  // 🕓 Gera horários a cada 15 minutos
   function gerarHorarios(inicio, fim) {
     const [hIni, mIni] = inicio.split(":").map(Number);
     const [hFim, mFim] = fim.split(":").map(Number);
@@ -183,10 +179,15 @@ export default function EscolherHorarioPage() {
     return dias[date.getDay()];
   };
 
+  // 🟢 Quando o usuário escolhe um horário
   const handleEscolherHorario = (hora) => {
     if (ocupados.includes(hora)) return;
+
+    // remover milissegundos da data para deixar URL mais limpo
+    const dataISO = selectedDate.toISOString().split(".")[0] + "Z";
+
     router.push(
-      `/barbearia/${slug}/servicos/${serviceId}/confirmar?colab=${colabId}&hora=${hora}&data=${selectedDate.toISOString()}`
+      `/barbearia/${slug}/servicos/${serviceId}/confirmar?colab=${colabId}&hora=${hora}&data=${dataISO}`
     );
   };
 
@@ -232,7 +233,9 @@ export default function EscolherHorarioPage() {
           })}
         </h2>
 
-        {loading && <p className="text-gray-400 text-center">Carregando horários…</p>}
+        {loading && (
+          <p className="text-gray-400 text-center">Carregando horários…</p>
+        )}
         {!!erro && <p className="text-red-400 text-center">{erro}</p>}
 
         {!loading && !erro && (
