@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import supabase from "@/lib/supabaseClient";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable"; // ✅ Import correto para PDF
+import { Download } from "lucide-react";
 
 export default function FinanceiroPage() {
   const [userId, setUserId] = useState(null);
@@ -175,6 +178,84 @@ export default function FinanceiroPage() {
     setDia("");
   }
 
+  // ✅ EXPORTAR CSV
+  function exportarCSV() {
+    const registros = [
+      ...agendamentos.map((a) => ({
+        data: new Date(a.starts_at).toLocaleString("pt-PT"),
+        tipo: "Serviço",
+        nome: `${a.client_name || "—"} (${a.services?.name || "—"})`,
+        valor: (a.services?.price ?? 0).toFixed(2),
+        responsavel: barberMap[a.barber_id] || barberMap[a.user_id] || "—",
+      })),
+      ...vendas.map((v) => ({
+        data: new Date(v.data_venda).toLocaleString("pt-PT"),
+        tipo: "Produto",
+        nome: v.produto,
+        valor: Number(v.total).toFixed(2),
+        responsavel: v.vendedor || "—",
+      })),
+    ];
+
+    if (registros.length === 0) return alert("Nenhum dado para exportar.");
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        ["Data", "Tipo", "Cliente/Produto", "Valor (€)", "Responsável"].join(","),
+        ...registros.map((r) =>
+          [r.data, r.tipo, r.nome, r.valor, r.responsavel].join(",")
+        ),
+      ].join("\n");
+
+    const link = document.createElement("a");
+    link.href = encodeURI(csvContent);
+    link.download = "financeiro.csv";
+    link.click();
+  }
+
+  // ✅ EXPORTAR PDF
+  function exportarPDF() {
+    const registros = [
+      ...agendamentos.map((a) => [
+        new Date(a.starts_at).toLocaleString("pt-PT"),
+        "Serviço",
+        `${a.client_name || "—"} (${a.services?.name || "—"})`,
+        `€${(a.services?.price ?? 0).toFixed(2)}`,
+        barberMap[a.barber_id] || barberMap[a.user_id] || "—",
+      ]),
+      ...vendas.map((v) => [
+        new Date(v.data_venda).toLocaleString("pt-PT"),
+        "Produto",
+        v.produto,
+        `€${Number(v.total).toFixed(2)}`,
+        v.vendedor || "—",
+      ]),
+    ];
+
+    if (registros.length === 0) return alert("Nenhum dado para exportar.");
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Relatório Financeiro", 14, 20);
+
+    autoTable(doc, {
+      head: [["Data", "Tipo", "Cliente/Produto", "Valor (€)", "Responsável"]],
+      body: registros,
+      startY: 30,
+      theme: "grid",
+      styles: { fontSize: 10 },
+    });
+
+    doc.text(
+      `Total Recebido: €${total.toFixed(2)}`,
+      14,
+      doc.lastAutoTable.finalY + 10
+    );
+
+    doc.save("financeiro.pdf");
+  }
+
   return (
     <div className="p-8 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white">
       <h1 className="text-3xl font-extrabold text-yellow-500 mb-8 tracking-wide flex items-center gap-2">
@@ -252,6 +333,20 @@ export default function FinanceiroPage() {
           className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-medium shadow-lg transition"
         >
           Limpar
+        </button>
+
+        {/* Exportações */}
+        <button
+          onClick={exportarCSV}
+          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black px-5 py-2 rounded-lg font-semibold shadow-lg transition"
+        >
+          <Download size={16} /> CSV
+        </button>
+        <button
+          onClick={exportarPDF}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-semibold shadow-lg transition"
+        >
+          <Download size={16} /> PDF
         </button>
       </div>
 

@@ -43,57 +43,45 @@ export default function AgendaDonoPage() {
     carregarDadosIniciais();
   }, []);
 
-  // 🔄 Carregar agendamentos do dono
+  // 🔄 Carregar agendamentos de todas as barbearias do dono
   async function carregarAgendamentos(donoId) {
-    const { data, error } = await supabase
-      .from("appointments")
-      .select(`
-        id,
-        client_name,
-        starts_at,
-        status,
-        service_id,
-        barbearia_id,
-        services(name, duration_minutes, price)
-      `)
-      .eq("user_id", donoId)
-      .order("starts_at", { ascending: true });
+    try {
+      const { data: barbeariasData, error: barbErr } = await supabase
+        .from("barbearias")
+        .select("id")
+        .eq("dono_id", donoId);
 
-    if (error) console.error("Erro ao carregar agendamentos:", error);
-    else setAgendamentos(data || []);
+      if (barbErr) throw barbErr;
+      if (!barbeariasData || barbeariasData.length === 0) {
+        console.log("Nenhuma barbearia encontrada para este dono");
+        setAgendamentos([]);
+        return;
+      }
+
+      const ids = barbeariasData.map((b) => b.id);
+
+      const { data: agData, error: agError } = await supabase
+        .from("appointments")
+        .select(`
+          id,
+          client_name,
+          starts_at,
+          status,
+          service_id,
+          barber_id,
+          services(name, duration_minutes, price)
+        `)
+        .in("barbearia_id", ids)
+        .order("starts_at", { ascending: true });
+
+      if (agError) throw agError;
+
+      setAgendamentos(agData || []);
+    } catch (err) {
+      console.error("Erro geral ao carregar agendamentos:", err);
+      setAgendamentos([]);
+    }
   }
-
-  // 🟢 Escutar alterações em tempo real
-  useEffect(() => {
-    if (!donoId) return;
-
-    const canal = supabase
-      .channel("realtime-appointments")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "appointments",
-          filter: `user_id=eq.${donoId}`,
-        },
-        async () => {
-          await carregarAgendamentos(donoId);
-          if (
-            novoAgendamento.barbearia_id &&
-            novoAgendamento.data &&
-            novoAgendamento.service_id
-          ) {
-            await gerarHorarios();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(canal);
-    };
-  }, [donoId, novoAgendamento]);
 
   // ⚡ Carregar serviços da barbearia
   useEffect(() => {
@@ -111,7 +99,7 @@ export default function AgendaDonoPage() {
   // ⚡ Gerar horários disponíveis
   async function gerarHorarios() {
     const { barbearia_id, data, service_id } = novoAgendamento;
-    if (!barbearia_id || !data || !service_id || !donoId) return;
+    if (!barbearia_id || !data || !service_id) return;
 
     const { data: barbearia } = await supabase
       .from("barbearias")
@@ -122,8 +110,8 @@ export default function AgendaDonoPage() {
 
     const { horario_abertura, horario_fechamento, intervalo_minutos } =
       barbearia;
-    const inicio = dayjs(`2000-01-01T${horario_abertura}`);
-    const fim = dayjs(`2000-01-01T${horario_fechamento}`);
+    const inicio = dayjs(`2000-01-01T${horario_abertura || "09:00"}`);
+    const fim = dayjs(`2000-01-01T${horario_fechamento || "19:00"}`);
     const intervalo = intervalo_minutos || 15;
 
     const horariosGerados = [];
@@ -137,7 +125,6 @@ export default function AgendaDonoPage() {
       .from("appointments")
       .select("starts_at, status, services(duration_minutes)")
       .eq("barbearia_id", barbearia_id)
-      .eq("user_id", donoId)
       .neq("status", "cancelado")
       .gte("starts_at", `${data}T00:00:00`)
       .lte("starts_at", `${data}T23:59:59`);
@@ -167,7 +154,6 @@ export default function AgendaDonoPage() {
     novoAgendamento.barbearia_id,
     novoAgendamento.data,
     novoAgendamento.service_id,
-    donoId,
   ]);
 
   // 💾 Criar agendamento
@@ -185,7 +171,6 @@ export default function AgendaDonoPage() {
       const agendamento = {
         client_name,
         barbearia_id,
-        user_id: donoId,
         service_id,
         starts_at,
         status: "scheduled",
@@ -270,7 +255,6 @@ export default function AgendaDonoPage() {
         Agenda do Dono
       </h1>
 
-      {/* 🔹 MODIFICAÇÃO ÚNICA AQUI */}
       <button
         onClick={() => {
           setNovoAgendamento({
@@ -288,7 +272,6 @@ export default function AgendaDonoPage() {
       >
         + Novo Agendamento
       </button>
-      {/* 🔹 FIM DA ÚNICA MUDANÇA */}
 
       {/* Grade de dias */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
