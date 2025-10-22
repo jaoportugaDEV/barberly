@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import supabase from "@/lib/supabaseClient";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 
 export default function BarbeariaPublicPage() {
   const params = useParams();
@@ -14,12 +15,25 @@ export default function BarbeariaPublicPage() {
   const [fotos, setFotos] = useState([]);
   const [lightbox, setLightbox] = useState(null);
 
-  // Estados do modal
+  // Modal de cadastro
   const [showModal, setShowModal] = useState(false);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [defaultCountry, setDefaultCountry] = useState("pt");
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const [statusAberto, setStatusAberto] = useState(null);
+
+  // Detectar país do navegador
+  useEffect(() => {
+    const lang = navigator.language || navigator.userLanguage;
+    if (lang.startsWith("pt-BR")) setDefaultCountry("br");
+    else if (lang.startsWith("pt")) setDefaultCountry("pt");
+    else if (lang.startsWith("es")) setDefaultCountry("es");
+    else if (lang.startsWith("fr")) setDefaultCountry("fr");
+    else setDefaultCountry("pt");
+  }, []);
 
   // Buscar barbearia
   const fetchBarbearia = async () => {
@@ -32,6 +46,7 @@ export default function BarbeariaPublicPage() {
     if (!error && data) {
       setBarbearia(data);
       fetchFotos(data.id);
+      verificarStatus(data.horario_abertura, data.horario_fechamento);
     }
   };
 
@@ -46,9 +61,43 @@ export default function BarbeariaPublicPage() {
     if (!error) setFotos(data || []);
   };
 
+  // Verifica se está aberto agora
+  function verificarStatus(horaAbertura, horaFechamento) {
+    if (!horaAbertura || !horaFechamento) {
+      setStatusAberto("indefinido");
+      return;
+    }
+
+    const agora = new Date();
+    const [hA, mA] = horaAbertura.split(":").map(Number);
+    const [hF, mF] = horaFechamento.split(":").map(Number);
+
+    const abertura = new Date();
+    abertura.setHours(hA, mA, 0, 0);
+
+    const fechamento = new Date();
+    fechamento.setHours(hF, mF, 0, 0);
+
+    if (agora >= abertura && agora <= fechamento) {
+      setStatusAberto("aberto");
+    } else {
+      setStatusAberto("fechado");
+    }
+  }
+
   useEffect(() => {
     if (slug) fetchBarbearia();
-  }, [slug]);
+
+    const interval = setInterval(() => {
+      if (barbearia) {
+        verificarStatus(
+          barbearia.horario_abertura,
+          barbearia.horario_fechamento
+        );
+      }
+    }, 300000);
+    return () => clearInterval(interval);
+  }, [slug, barbearia]);
 
   // Salvar cliente
   const handleSalvarCliente = async (e) => {
@@ -62,7 +111,6 @@ export default function BarbeariaPublicPage() {
     setMsg("");
 
     try {
-      // Verificar se já existe cliente com esse telefone na barbearia
       const { data: existente } = await supabase
         .from("clientes")
         .select("id")
@@ -81,7 +129,6 @@ export default function BarbeariaPublicPage() {
         return;
       }
 
-      // Inserir novo cliente
       const { error } = await supabase.from("clientes").insert([
         {
           nome,
@@ -92,7 +139,6 @@ export default function BarbeariaPublicPage() {
 
       if (error) throw error;
 
-      // Guardar no localStorage para reutilizar no agendamento
       localStorage.setItem("client_name", nome);
       localStorage.setItem("client_phone", telefone);
 
@@ -109,12 +155,18 @@ export default function BarbeariaPublicPage() {
     }
   };
 
-  if (!barbearia) return <p className="p-6 text-gray-400">Carregando...</p>;
+  if (!barbearia)
+    return <p className="p-6 text-gray-400">Carregando barbearia...</p>;
+
+  const horarioTexto =
+    barbearia.horario_abertura && barbearia.horario_fechamento
+      ? `Das ${barbearia.horario_abertura.slice(0, 5)} às ${barbearia.horario_fechamento.slice(0, 5)}`
+      : null;
 
   return (
     <div className="text-white bg-gradient-to-b from-neutral-950 via-neutral-900 to-black min-h-screen font-sans">
       <div className="max-w-6xl mx-auto px-4 py-10">
-        {/* GALERIA DE FOTOS */}
+        {/* GALERIA */}
         {fotos.length > 0 && (
           <div className="grid grid-cols-4 gap-2 h-[400px] rounded-xl overflow-hidden">
             <div className="col-span-2 row-span-2">
@@ -152,42 +204,42 @@ export default function BarbeariaPublicPage() {
           </div>
         )}
 
-        {/* CARD PRINCIPAL */}
+        {/* CARD */}
         <div className="mt-8 flex items-center justify-between p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-xl">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent capitalize">
               {barbearia.nome}
             </h1>
             <p className="text-gray-300 mt-1">
               {barbearia.endereco}, {barbearia.cidade}
             </p>
             <p className="text-gray-400">{barbearia.telefone}</p>
-            <p className="text-green-400 mt-1 font-medium">
-              {barbearia.horario
-                ? `Aberto até ${barbearia.horario}`
-                : "Horário não informado"}
-            </p>
+
+            {statusAberto === "indefinido" ? (
+              <p className="text-gray-500 mt-1">Horário não informado</p>
+            ) : statusAberto === "aberto" ? (
+              <p className="text-green-400 mt-1 font-medium">
+                🟢 Aberto agora — {horarioTexto}
+              </p>
+            ) : (
+              <p className="text-red-400 mt-1 font-medium">
+                🔴 Fechado — abre às{" "}
+                {barbearia.horario_abertura?.slice(0, 5) || "--:--"}
+              </p>
+            )}
           </div>
 
-          <div className="flex space-x-3">
-            {/* BOTÃO MARCAR abre modal */}
+          <div>
             <button
               onClick={() => setShowModal(true)}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 px-6 py-2 rounded-lg font-semibold shadow-md transition"
+              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 px-8 py-3 rounded-lg font-semibold shadow-md transition transform hover:scale-[1.05]"
             >
               Marcar
-            </button>
-
-            <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 px-6 py-2 rounded-lg font-semibold shadow-md transition">
-              Favorito
-            </button>
-            <button className="bg-gray-800 hover:bg-gray-700 px-6 py-2 rounded-lg font-semibold shadow-md transition">
-              Mais
             </button>
           </div>
         </div>
 
-        {/* SEÇÃO SOBRE */}
+        {/* SOBRE */}
         <div id="sobre" className="mt-12">
           <h2 className="text-2xl font-bold text-yellow-500 mb-4">Sobre</h2>
           <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10 shadow-lg flex flex-col md:flex-row gap-6">
@@ -229,7 +281,7 @@ export default function BarbeariaPublicPage() {
         </div>
       </div>
 
-      {/* MODAL PARA CADASTRO DO CLIENTE */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
           <div className="bg-neutral-900 p-6 rounded-2xl w-full max-w-sm border border-neutral-700 shadow-xl">
@@ -245,13 +297,34 @@ export default function BarbeariaPublicPage() {
                 onChange={(e) => setNome(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-yellow-500"
               />
-              <input
-                type="text"
-                placeholder="Telefone"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-yellow-500"
-              />
+
+              {/* Campo de telefone com bandeira */}
+              <div className="w-full">
+                <PhoneInput
+                  country={defaultCountry}
+                  value={telefone}
+                  onChange={(value) => setTelefone(value)}
+                  inputStyle={{
+                    width: "100%",
+                    backgroundColor: "#171717",
+                    color: "white",
+                    border: "1px solid #3f3f46",
+                    borderRadius: "0.5rem",
+                    height: "42px",
+                    paddingLeft: "48px",
+                    fontSize: "15px",
+                  }}
+                  buttonStyle={{
+                    backgroundColor: "#1f1f1f",
+                    border: "1px solid #3f3f46",
+                    borderRight: "none",
+                  }}
+                  dropdownStyle={{
+                    backgroundColor: "#1f1f1f",
+                    color: "white",
+                  }}
+                />
+              </div>
 
               {!!msg && (
                 <p

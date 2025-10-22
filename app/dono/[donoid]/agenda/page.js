@@ -11,6 +11,7 @@ export default function AgendaDonoPage() {
   const [servicos, setServicos] = useState([]);
   const [horarios, setHorarios] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalInfo, setModalInfo] = useState(null);
   const [donoId, setDonoId] = useState(null);
 
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -53,7 +54,6 @@ export default function AgendaDonoPage() {
 
       if (barbErr) throw barbErr;
       if (!barbeariasData || barbeariasData.length === 0) {
-        console.log("Nenhuma barbearia encontrada para este dono");
         setAgendamentos([]);
         return;
       }
@@ -65,6 +65,7 @@ export default function AgendaDonoPage() {
         .select(`
           id,
           client_name,
+          client_phone,
           starts_at,
           status,
           service_id,
@@ -292,7 +293,8 @@ export default function AgendaDonoPage() {
                 ags.map((a) => (
                   <div
                     key={a.id}
-                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center"
+                    onClick={() => setModalInfo(a)}
+                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center cursor-pointer hover:border-yellow-500 transition"
                   >
                     <div>
                       <p className="font-semibold text-yellow-300">
@@ -311,13 +313,19 @@ export default function AgendaDonoPage() {
                     ) : (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleConcluirAgendamento(a)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConcluirAgendamento(a);
+                          }}
                           className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg text-xs"
                         >
                           ✓
                         </button>
                         <button
-                          onClick={() => handleExcluirAgendamento(a.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExcluirAgendamento(a.id);
+                          }}
                           className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg text-xs"
                         >
                           🗑
@@ -334,14 +342,73 @@ export default function AgendaDonoPage() {
         })}
       </div>
 
-      {/* Modal */}
+      {/* 🔹 Modal de detalhes com botão WhatsApp */}
+      {modalInfo && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[400px] border border-gray-700">
+            <h2 className="text-xl font-bold text-yellow-400 mb-4 text-center">
+              Detalhes do Agendamento
+            </h2>
+
+            <div className="space-y-2 text-gray-300 text-sm">
+              <p>
+                <span className="text-yellow-400 font-semibold">Cliente:</span>{" "}
+                {modalInfo.client_name}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Telefone:</span>{" "}
+                {modalInfo.client_phone || "Não informado"}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Serviço:</span>{" "}
+                {modalInfo.services?.name || "—"}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Horário:</span>{" "}
+                {dayjs(modalInfo.starts_at).format("DD/MM/YYYY HH:mm")}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Valor:</span>{" "}
+                €{modalInfo.services?.price || "—"}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Status:</span>{" "}
+                {modalInfo.status === "concluido"
+                  ? "✅ Concluído"
+                  : "⏳ Agendado"}
+              </p>
+            </div>
+
+            {/* ✅ Botão WhatsApp */}
+            {modalInfo.client_phone && (
+              <a
+                href={`https://wa.me/${modalInfo.client_phone.replace(/\D/g, "")}`}
+                target="_blank"
+                className="block mt-5 w-full text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
+              >
+                💬 Enviar mensagem no WhatsApp
+              </a>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setModalInfo(null)}
+                className="px-4 py-2 bg-yellow-600 text-black font-semibold rounded-lg hover:bg-yellow-700 transition"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de novo agendamento (inalterado) */}
       {modalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
           <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
               Novo Agendamento
             </h2>
-
             <div className="flex flex-col gap-3">
               <input
                 type="text"
@@ -355,7 +422,6 @@ export default function AgendaDonoPage() {
                 }
                 className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
               />
-
               <select
                 value={novoAgendamento.barbearia_id}
                 onChange={(e) =>
@@ -375,7 +441,6 @@ export default function AgendaDonoPage() {
                   </option>
                 ))}
               </select>
-
               <select
                 value={novoAgendamento.service_id}
                 onChange={(e) =>
@@ -394,7 +459,6 @@ export default function AgendaDonoPage() {
                   </option>
                 ))}
               </select>
-
               <input
                 type="date"
                 value={novoAgendamento.data}
@@ -406,7 +470,6 @@ export default function AgendaDonoPage() {
                 }
                 className="p-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
               />
-
               <select
                 value={novoAgendamento.horario}
                 onChange={(e) =>
@@ -436,7 +499,6 @@ export default function AgendaDonoPage() {
                 ))}
               </select>
             </div>
-
             <div className="flex justify-end gap-2 mt-5">
               <button
                 onClick={() => setModalOpen(false)}

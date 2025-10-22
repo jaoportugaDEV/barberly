@@ -33,12 +33,14 @@ export default function ConfirmarAgendamentoPage() {
     try {
       setCarregando(true);
 
+      // 🔹 Buscar barbearia
       const { data: barb } = await supabase
         .from("barbearias")
         .select("id, nome")
         .eq("slug", slug)
         .single();
 
+      // 🔹 Buscar serviço
       const { data: serv } = await supabase
         .from("services")
         .select("id, name, price, duration_minutes")
@@ -46,7 +48,11 @@ export default function ConfirmarAgendamentoPage() {
         .single();
 
       let colab = null;
-      if (colabId !== "any") {
+
+      // 🔹 Caso "qualquer colaborador" → escolher automaticamente
+      if (colabId === "any") {
+        colab = await escolherColaboradorLivre(barb.id, serv.duration_minutes);
+      } else {
         const { data } = await supabase
           .from("profiles")
           .select("id, name")
@@ -61,6 +67,80 @@ export default function ConfirmarAgendamentoPage() {
     } finally {
       setCarregando(false);
     }
+  }
+
+  // 🔹 Escolher colaborador disponível (considera barbeiros + dono)
+  async function escolherColaboradorLivre(barbeariaId, duracaoServico) {
+    const inicioAg = new Date(dataISO);
+    const [h, m] = hora.split(":").map(Number);
+    inicioAg.setHours(h, m, 0, 0);
+    const fimAg = new Date(inicioAg.getTime() + duracaoServico * 60000);
+
+    // Buscar todos os colaboradores (barbeiros + dono)
+    const { data: colaboradores } = await supabase
+      .from("profiles")
+      .select("id, name, role")
+      .eq("barbearia_id", barbeariaId)
+      .in("role", ["barber", "owner"]);
+
+    if (!colaboradores?.length) return null;
+
+    // Buscar agendamentos do dia
+    const inicioDia = new Date(dataISO);
+    inicioDia.setHours(0, 0, 0, 0);
+    const fimDia = new Date(dataISO);
+    fimDia.setHours(23, 59, 59, 999);
+
+    const { data: agends } = await supabase
+      .from("appointments")
+      .select("starts_at, barber_id, service_id, status")
+      .eq("barbearia_id", barbeariaId)
+      .neq("status", "cancelado")
+      .gte("starts_at", inicioDia.toISOString())
+      .lte("starts_at", fimDia.toISOString());
+
+    // Buscar durações dos serviços desses agendamentos
+    const servIds = [...new Set(agends.map((a) => a.service_id))];
+    let duracoes = {};
+    if (servIds.length > 0) {
+      const { data: servDur } = await supabase
+        .from("services")
+        .select("id, duration_minutes")
+        .in("id", servIds);
+      servDur?.forEach((s) => {
+        duracoes[s.id] = s.duration_minutes || 30;
+      });
+    }
+
+    // Determinar quem está livre
+    const livres = [];
+
+    for (const colab of colaboradores) {
+      const agsColab = agends.filter((a) => a.barber_id === colab.id);
+      let ocupado = false;
+
+      for (const ag of agsColab) {
+        const dur = duracoes[ag.service_id] || 30;
+        const inicio = new Date(ag.starts_at);
+        const fim = new Date(inicio.getTime() + dur * 60000);
+
+        // Se sobrepor com o horário escolhido
+        if (inicio < fimAg && fim > inicioAg) {
+          ocupado = true;
+          break;
+        }
+      }
+
+      if (!ocupado) livres.push(colab);
+    }
+
+    // 🔹 Decisão final
+    if (livres.length === 0) return null;
+    if (livres.length === 1) return livres[0];
+
+    // Se mais de um estiver livre → escolhe aleatoriamente
+    const randomIndex = Math.floor(Math.random() * livres.length);
+    return livres[randomIndex];
   }
 
   async function confirmarAgendamento() {
@@ -81,7 +161,7 @@ export default function ConfirmarAgendamentoPage() {
       const { error } = await supabase.from("appointments").insert([
         {
           barbearia_id: barbearia.id,
-          barber_id: colabId === "any" ? null : colabId,
+          barber_id: colaborador ? colaborador.id : null,
           service_id: serviceId,
           starts_at: dataInicio.toISOString(),
           status: "scheduled",
@@ -114,7 +194,6 @@ export default function ConfirmarAgendamentoPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-gray-950 text-white flex items-center justify-center px-4 py-12">
       <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-black border border-yellow-600/40 rounded-3xl p-8 w-full max-w-md shadow-[0_0_40px_rgba(255,215,0,0.15)] backdrop-blur-md">
-        {/* brilho sutil dourado */}
         <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-br from-yellow-500/20 to-transparent blur-lg opacity-20"></div>
 
         <div className="relative z-10">
@@ -136,7 +215,7 @@ export default function ConfirmarAgendamentoPage() {
               {servico?.name}
             </p>
             <p>
-              <span className="font-semibold text-yellow-400">Valor:</span> €
+              <span className="font-semibold text-yellow-400">Valor:</span> €{" "}
               {servico?.price}
             </p>
             <p>
@@ -145,7 +224,7 @@ export default function ConfirmarAgendamentoPage() {
             </p>
             <p>
               <span className="font-semibold text-yellow-400">Colaborador:</span>{" "}
-              {colaborador ? colaborador.name : "Qualquer"}
+              {colaborador ? colaborador.name : "— Nenhum disponível —"}
             </p>
             <p>
               <span className="font-semibold text-yellow-400">Data:</span>{" "}
@@ -175,7 +254,7 @@ export default function ConfirmarAgendamentoPage() {
             </button>
             <button
               onClick={confirmarAgendamento}
-              disabled={salvando}
+              disabled={salvando || !colaborador}
               className="px-5 py-2.5 rounded-xl font-semibold text-black bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 shadow-[0_0_15px_rgba(255,215,0,0.3)] transition-all transform hover:scale-[1.03] disabled:opacity-50"
             >
               {salvando ? "Salvando..." : "Confirmar"}

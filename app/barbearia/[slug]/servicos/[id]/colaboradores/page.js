@@ -13,7 +13,20 @@ export default function EscolherColaboradorPage() {
   const [barbearia, setBarbearia] = useState(null);
   const [colaboradores, setColaboradores] = useState([]);
   const [erro, setErro] = useState("");
+  const [userId, setUserId] = useState(null);
 
+  // 🔹 Obter usuário autenticado
+  useEffect(() => {
+    (async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        setUserId(authData.user.id);
+        console.log("🧠 Dono/usuário logado:", authData.user.id);
+      }
+    })();
+  }, []);
+
+  // 🔹 Carregar colaboradores
   useEffect(() => {
     if (!slug || !id) return;
 
@@ -22,7 +35,7 @@ export default function EscolherColaboradorPage() {
       setErro("");
 
       try {
-        // 🔹 Buscar barbearia
+        // 🔹 Buscar barbearia pelo slug
         const { data: barb, error: errBarb } = await supabase
           .from("barbearias")
           .select("id, nome")
@@ -36,21 +49,41 @@ export default function EscolherColaboradorPage() {
         }
         setBarbearia(barb);
 
-        // 🔹 Buscar colaboradores (barbeiros + dono colaborador)
+        // 🔹 Buscar todos os colaboradores válidos
         const { data: perfis, error: errPerfis } = await supabase
           .from("profiles")
-          .select("id, name, foto_url, role, is_colaborador")
+          .select("id, name, foto_url, role, is_colaborador, barbearia_id")
           .eq("barbearia_id", barb.id)
-          .or("role.eq.barber,and(role.eq.owner,is_colaborador.eq.true)") // 👈 lógica principal
+          .or("role.eq.barber,and(role.eq.owner,is_colaborador.eq.true)")
           .order("name", { ascending: true });
 
         if (errPerfis) {
+          console.error(errPerfis);
           setErro("Erro ao carregar colaboradores.");
           setLoading(false);
           return;
         }
 
-        setColaboradores(perfis || []);
+        // 🔹 Elimina duplicações (caso o dono apareça 2x)
+        const idsUsados = new Set();
+        const perfisFiltrados = [];
+        for (const p of perfis || []) {
+          if (!idsUsados.has(p.id)) {
+            idsUsados.add(p.id);
+            perfisFiltrados.push(p);
+          }
+        }
+
+        // 🔹 Substitui a foto do dono (owner logado) pela versão mais recente
+        const perfisAjustados = perfisFiltrados.map((p) => {
+          if (p.id === userId) {
+            // força recarregar imagem mais recente direto do banco
+            return { ...p, foto_url: p.foto_url || "" };
+          }
+          return p;
+        });
+
+        setColaboradores(perfisAjustados);
       } catch (e) {
         console.error(e);
         setErro("Erro inesperado ao carregar colaboradores.");
@@ -58,8 +91,9 @@ export default function EscolherColaboradorPage() {
         setLoading(false);
       }
     })();
-  }, [slug, id]);
+  }, [slug, id, userId]);
 
+  // 🔹 Redireciona para o colaborador escolhido
   const handleEscolha = (colabId) => {
     if (colabId === "qualquer") {
       router.push(`/barbearia/${slug}/servicos/${id}/colaboradores/any/horarios`);
@@ -116,9 +150,12 @@ export default function EscolherColaboradorPage() {
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition"
                 >
                   <img
-                    src={c.foto_url || "/placeholder.png"}
+                    src={
+                      c.foto_url ||
+                      "https://upload.wikimedia.org/wikipedia/commons/9/99/Sample_User_Icon.png"
+                    }
                     alt={c.name}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-12 h-12 rounded-full object-cover border border-yellow-600"
                   />
                   <div>
                     <p className="font-medium capitalize">{c.name}</p>

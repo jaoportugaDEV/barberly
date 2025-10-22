@@ -87,19 +87,23 @@ export default function EscolherHorarioPage() {
         });
       }
 
-      // 🔹 Buscar IDs dos barbeiros
-      const { data: barbeiros } = await supabase
+      // 🔹 Buscar IDs de todos os colaboradores (barbeiros + dono)
+      const { data: colaboradores } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, role")
         .eq("barbearia_id", barb.id)
-        .eq("role", "barber");
+        .in("role", ["barber", "owner"]);
 
-      const idsBarbeiros = barbeiros?.map((b) => b.id) || [];
+      const idsColaboradores = colaboradores?.map((c) => c.id) || [];
 
-      // 🔹 Criar mapa de horários ocupados
-      const mapaBarbeiros = {};
-      for (const b of idsBarbeiros) mapaBarbeiros[b] = new Set();
+      // 🔹 Criar mapa de horários ocupados por colaborador
+      const mapaColaboradores = {};
+      for (const c of idsColaboradores) mapaColaboradores[c] = new Set();
 
+      // 🔹 Mapa geral da barbearia (para "qualquer colaborador")
+      const mapaGeral = new Set();
+
+      // 🔹 Preencher mapas
       for (const ag of agends) {
         const dur = duracoes[ag.service_id] || 30;
         const inicio = new Date(ag.starts_at);
@@ -110,7 +114,15 @@ export default function EscolherHorarioPage() {
           const horaStr = `${String(atual.getHours()).padStart(2, "0")}:${String(
             atual.getMinutes()
           ).padStart(2, "0")}`;
-          mapaBarbeiros[ag.barber_id]?.add(horaStr);
+
+          // Marca no mapa do colaborador (barbeiro ou dono)
+          if (ag.barber_id) {
+            mapaColaboradores[ag.barber_id]?.add(horaStr);
+          }
+
+          // Marca no mapa geral (para o modo “qualquer colaborador”)
+          mapaGeral.add(horaStr);
+
           atual = new Date(atual.getTime() + 15 * 60000);
         }
       }
@@ -118,14 +130,16 @@ export default function EscolherHorarioPage() {
       // 🔹 Determinar horários ocupados
       let ocupadosCalc = [];
       if (colabId === "any") {
+        // Caso “qualquer colaborador” → ocupado se TODOS estiverem ocupados
         ocupadosCalc = slots.filter((hora) =>
-          idsBarbeiros.every((b) => mapaBarbeiros[b]?.has(hora))
+          idsColaboradores.every((c) => mapaColaboradores[c]?.has(hora))
         );
       } else {
-        ocupadosCalc = Array.from(mapaBarbeiros[colabId] || []);
+        // Caso barbeiro ou dono específico → usa apenas a agenda dele
+        ocupadosCalc = Array.from(mapaColaboradores[colabId] || []);
       }
 
-      // 🔹 Ajustar ocupados conforme duração do serviço
+      // 🔹 Ajustar ocupados conforme duração do serviço atual
       const ocupadosComDuracao = new Set([...ocupadosCalc]);
       for (const hora of slots) {
         const [h, m] = hora.split(":").map(Number);
@@ -182,10 +196,7 @@ export default function EscolherHorarioPage() {
   // 🟢 Quando o usuário escolhe um horário
   const handleEscolherHorario = (hora) => {
     if (ocupados.includes(hora)) return;
-
-    // remover milissegundos da data para deixar URL mais limpo
     const dataISO = selectedDate.toISOString().split(".")[0] + "Z";
-
     router.push(
       `/barbearia/${slug}/servicos/${serviceId}/confirmar?colab=${colabId}&hora=${hora}&data=${dataISO}`
     );

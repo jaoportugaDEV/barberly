@@ -24,6 +24,7 @@
     "react-calendar": "^6.0.0",
     "react-dom": "19.1.0",
     "react-easy-crop": "^5.5.2",
+    "react-phone-input-2": "^2.15.1",
     "recharts": "^3.2.1",
     "sass": "^1.93.2",
     "sweetalert2": "^11.25.0",

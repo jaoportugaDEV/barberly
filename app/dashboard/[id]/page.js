@@ -10,6 +10,7 @@ export default function AgendaBarbeiroPage() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [servicos, setServicos] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalInfo, setModalInfo] = useState(null); // 🔹 Novo: detalhes do cliente
   const [novoAgendamento, setNovoAgendamento] = useState({
     client_name: "",
     service_id: "",
@@ -47,19 +48,19 @@ export default function AgendaBarbeiroPage() {
 
       setServicos(servicosData || []);
 
-      // 🔹 Só busca agendamentos "ativos" (sem incluir os concluídos)
       const { data: agData } = await supabase
         .from("appointments")
         .select(`
           id,
           client_name,
+          client_phone,
           starts_at,
           status,
           service_id,
           services(name, duration_minutes, price)
         `)
         .eq("barber_id", barbeiro.id)
-        .neq("status", "concluido") // ⛔️ NÃO mostrar concluídos
+        .neq("status", "concluido")
         .order("starts_at", { ascending: true });
 
       setAgendamentos(agData || []);
@@ -68,7 +69,6 @@ export default function AgendaBarbeiroPage() {
     }
   }
 
-  // 🔹 Bloqueia horários conflitantes considerando a duração
   function gerarHorariosDisponiveis() {
     if (!novoAgendamento.data) return { horarios: [], ocupados: [] };
 
@@ -103,7 +103,6 @@ export default function AgendaBarbeiroPage() {
     const slotsServico = Math.ceil(duracaoServico / 15);
 
     const ocupadosComConflito = new Set([...ocupados]);
-
     if (duracaoServico > 0) {
       horarios.forEach((h) => {
         const inicio = dayjs(`${dataSelecionada}T${h}`);
@@ -180,13 +179,11 @@ export default function AgendaBarbeiroPage() {
 
   async function handleConcluirAgendamento(agendamento) {
     try {
-      // Atualiza o status
       await supabase
         .from("appointments")
         .update({ status: "concluido" })
         .eq("id", agendamento.id);
 
-      // Insere no financeiro
       const valor = agendamento.services?.price || 0;
       const descricao = agendamento.services?.name || "Serviço";
       const data = new Date().toISOString();
@@ -203,7 +200,6 @@ export default function AgendaBarbeiroPage() {
 
       if (error) throw error;
 
-      // Remove da tela
       setAgendamentos((prev) =>
         prev.filter((item) => item.id !== agendamento.id)
       );
@@ -255,7 +251,8 @@ export default function AgendaBarbeiroPage() {
                 ags.map((a) => (
                   <div
                     key={a.id}
-                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center"
+                    onClick={() => setModalInfo(a)} // 🔹 abre o modal
+                    className="bg-gray-900/50 p-3 rounded-lg mb-3 border border-gray-700/50 flex justify-between items-center cursor-pointer hover:border-yellow-500 transition"
                   >
                     <div>
                       <p className="font-semibold text-yellow-300">
@@ -272,13 +269,19 @@ export default function AgendaBarbeiroPage() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleConcluirAgendamento(a)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConcluirAgendamento(a);
+                        }}
                         className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg text-xs"
                       >
                         ✓
                       </button>
                       <button
-                        onClick={() => handleExcluirAgendamento(a.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExcluirAgendamento(a.id);
+                        }}
                         className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-lg text-xs"
                       >
                         🗑
@@ -294,6 +297,64 @@ export default function AgendaBarbeiroPage() {
         })}
       </div>
 
+      {/* 🔹 Modal de detalhes do agendamento */}
+      {modalInfo && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+          <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[400px] border border-gray-700">
+            <h2 className="text-xl font-bold text-yellow-400 mb-4 text-center">
+              Detalhes do Agendamento
+            </h2>
+            <div className="text-sm text-gray-300 space-y-2">
+              <p>
+                <span className="text-yellow-400 font-semibold">Cliente:</span>{" "}
+                {modalInfo.client_name}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Telefone:</span>{" "}
+                {modalInfo.client_phone || "Não informado"}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Serviço:</span>{" "}
+                {modalInfo.services?.name || "—"}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Data:</span>{" "}
+                {dayjs(modalInfo.starts_at).format("DD/MM/YYYY")}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Hora:</span>{" "}
+                {dayjs(modalInfo.starts_at).format("HH:mm")}
+              </p>
+              <p>
+                <span className="text-yellow-400 font-semibold">Valor:</span>{" "}
+                €{modalInfo.services?.price?.toFixed(2) || "0.00"}
+              </p>
+            </div>
+
+            {/* 🔹 Botão WhatsApp */}
+            {modalInfo.client_phone && (
+              <a
+                href={`https://wa.me/${modalInfo.client_phone.replace(/\D/g, "")}`}
+                target="_blank"
+                className="block mt-5 w-full text-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
+              >
+                💬 Enviar mensagem no WhatsApp
+              </a>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setModalInfo(null)}
+                className="px-4 py-2 bg-yellow-600 text-black font-semibold rounded-lg hover:bg-yellow-700 transition"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal novo agendamento permanece igual */}
       {modalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
           <div className="bg-gray-900 p-6 rounded-2xl shadow-xl w-[420px] border border-gray-700">

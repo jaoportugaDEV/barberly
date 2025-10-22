@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ShoppingCart,
   LineChart,
+  Settings, // ⚙️ novo ícone para configurações
 } from "lucide-react";
 
 export default function DonoLayout({ children }) {
@@ -59,6 +60,7 @@ export default function DonoLayout({ children }) {
     { name: "Agenda", path: "agenda", icon: Calendar },
     { name: "Barbearias", path: "barbearias", icon: Building2 },
     { name: "Barbeiros", path: "barbeiros", icon: Users },
+    { name: "Configurações", path: "configuracoes", icon: Settings }, // ⚙️ novo item
   ];
 
   // 🔸 Submenu Estoque
