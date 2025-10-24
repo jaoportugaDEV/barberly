@@ -17,7 +17,7 @@ import {
   ChevronRight,
   ShoppingCart,
   LineChart,
-  Settings, // ⚙️ novo ícone para configurações
+  Settings,
 } from "lucide-react";
 
 export default function DonoLayout({ children }) {
@@ -49,7 +49,7 @@ export default function DonoLayout({ children }) {
     router.push("/login");
   };
 
-  // 🔹 Abre/fecha grupos de menu
+  // 🔹 Alterna menus
   const toggleMenu = (menu) => {
     setOpenMenus((prev) => ({ ...prev, [menu]: !prev[menu] }));
   };
@@ -58,24 +58,22 @@ export default function DonoLayout({ children }) {
   const nav = [
     { name: "Dashboard", path: "", icon: LayoutDashboard },
     { name: "Agenda", path: "agenda", icon: Calendar },
-    { name: "Barbearias", path: "barbearias", icon: Building2 },
-    { name: "Barbeiros", path: "barbeiros", icon: Users },
-    { name: "Configurações", path: "configuracoes", icon: Settings }, // ⚙️ novo item
+    { name: "Empresas", path: "barbearias", icon: Building2 },
+    { name: "Colaboradores", path: "barbeiros", icon: Users },
+    { name: "Configurações", path: "configuracoes", icon: Settings },
   ];
 
-  // 🔸 Submenu Estoque
+  // 🔸 Submenus
   const estoqueSubnav = [
     { name: "Produtos", path: "estoque", icon: Package },
     { name: "Novo Produto", path: "novo", icon: PlusSquare },
   ];
 
-  // 🔸 Submenu Vendas
   const vendasSubnav = [
     { name: "Vender Produto", path: "vendas", icon: ShoppingCart },
     { name: "Histórico de Vendas", path: "historico-vendas", icon: LineChart },
   ];
 
-  // 🔸 Submenu Financeiro
   const financeiroSubnav = [
     { name: "Financeiro Geral", path: "financeiro", icon: DollarSign },
   ];
@@ -128,7 +126,11 @@ export default function DonoLayout({ children }) {
               <span className="flex items-center gap-3 font-semibold">
                 <Package size={18} /> Estoque
               </span>
-              {openMenus.estoque ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {openMenus.estoque ? (
+                <ChevronDown size={16} />
+              ) : (
+                <ChevronRight size={16} />
+              )}
             </button>
 
             {openMenus.estoque && (
@@ -164,7 +166,11 @@ export default function DonoLayout({ children }) {
               <span className="flex items-center gap-3 font-semibold">
                 <ShoppingCart size={18} /> Vendas
               </span>
-              {openMenus.vendas ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {openMenus.vendas ? (
+                <ChevronDown size={16} />
+              ) : (
+                <ChevronRight size={16} />
+              )}
             </button>
 
             {openMenus.vendas && (

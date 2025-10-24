@@ -46,7 +46,7 @@ export default function BarbeirosPage() {
   // 🔹 Criar ou editar barbeiro
   const handleSave = async () => {
     if (!selectedBarbearia) {
-      alert("Selecione uma barbearia.");
+      alert("Selecione uma empresa.");
       return;
     }
     try {
@@ -66,9 +66,9 @@ export default function BarbeirosPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao salvar barbeiro");
+      if (!res.ok) throw new Error(data.error || "Erro ao salvar colaborador");
 
-      alert(editingId ? "Barbeiro atualizado com sucesso!" : "Barbeiro criado com sucesso!");
+      alert(editingId ? "Colaborador atualizado com sucesso!" : "Colaborador criado com sucesso!");
 
       setName("");
       setPhone("");
@@ -87,13 +87,13 @@ export default function BarbeirosPage() {
 
   // 🔹 Excluir barbeiro
   const handleDelete = async (id) => {
-    if (!confirm("Tem certeza que deseja excluir este barbeiro?")) return;
+    if (!confirm("Tem certeza que deseja excluir este colaborador?")) return;
     try {
       const res = await fetch(`/api/barbeiros/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao excluir barbeiro");
+      if (!res.ok) throw new Error(data.error || "Erro ao excluir colaborador");
 
-      alert("Barbeiro excluído com sucesso!");
+      alert("Colaborador excluído com sucesso!");
       setBarbeiros(barbeiros.filter((b) => b.id !== id));
     } catch (err) {
       alert("Erro: " + err.message);
@@ -103,18 +103,18 @@ export default function BarbeirosPage() {
   return (
     <div className="p-6 text-white">
       <h1 className="text-3xl font-extrabold mb-6 bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-        Gerenciar Barbeiros
+        Gerenciar Colaboradores
       </h1>
 
-      {/* Seleção da Barbearia */}
+      {/* Seleção da Empresa */}
       <div className="mb-6">
-        <label className="block mb-2 font-medium">Selecione a Barbearia</label>
+        <label className="block mb-2 font-medium">Selecione a Empresa</label>
         <select
           value={selectedBarbearia}
           onChange={(e) => setSelectedBarbearia(e.target.value)}
           className="p-3 rounded-lg bg-gray-800 text-white w-full focus:ring-2 focus:ring-yellow-500"
         >
-          <option value="">Selecione uma barbearia</option>
+          <option value="">Selecione uma empresa</option>
           {barbearias.map((b) => (
             <option key={b.id} value={b.id}>
               {b.nome}
@@ -126,7 +126,7 @@ export default function BarbeirosPage() {
       {/* Formulário */}
       <div className="backdrop-blur-md bg-gray-800/60 p-6 rounded-2xl shadow-lg border border-gray-700/50 mb-8">
         <h2 className="text-xl font-semibold mb-4 text-yellow-400">
-          {editingId ? "Editar Barbeiro" : "Cadastrar Novo Barbeiro"}
+          {editingId ? "Editar Colaborador" : "Cadastrar Novo Colaborador"}
         </h2>
         <div className="space-y-3">
           <input
@@ -161,13 +161,13 @@ export default function BarbeirosPage() {
             onClick={handleSave}
             className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 px-4 py-3 rounded-lg w-full font-semibold shadow-md hover:scale-[1.02] transition"
           >
-            {editingId ? "Salvar Alterações" : "Criar Barbeiro"}
+            {editingId ? "Salvar Alterações" : "Criar Colaborador"}
           </button>
         </div>
       </div>
 
       {/* Lista */}
-      <h2 className="text-xl font-semibold mb-3">Lista de Barbeiros</h2>
+      <h2 className="text-xl font-semibold mb-3">Lista de Colaboradores</h2>
       <div className="overflow-x-auto rounded-xl shadow-lg border border-gray-700/50">
         <table className="w-full text-left">
           <thead>
@@ -209,7 +209,7 @@ export default function BarbeirosPage() {
             {barbeiros.length === 0 && (
               <tr>
                 <td colSpan="4" className="p-4 text-center text-gray-400">
-                  Nenhum barbeiro cadastrado
+                  Nenhum colaborador cadastrado
                 </td>
               </tr>
             )}
