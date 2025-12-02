@@ -203,71 +203,124 @@ export default function EscolherHorarioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-white">
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        {/* topo */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link
-            href={`/barbearia/${slug}/servicos/${serviceId}/colaboradores`}
-            className="text-gray-300 hover:text-white"
-          >
-            ← Voltar
-          </Link>
-          <h1 className="text-2xl font-semibold text-yellow-500">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-black text-white font-sans">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-600/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+        <div className="mb-8 sm:mb-12">
+          <div className="flex items-center gap-3 sm:gap-4 mb-6">
+            <Link
+              href={`/barbearia/${slug}/servicos/${serviceId}/colaboradores`}
+              className="text-gray-400 hover:text-yellow-500 transition-colors flex items-center gap-2 group"
+            >
+              <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-sm sm:text-base">Voltar</span>
+            </Link>
+          </div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent leading-tight">
             {barbearia?.nome
               ? `Escolher horário — ${barbearia.nome}`
               : "Escolher horário"}
           </h1>
         </div>
 
-        {/* calendário */}
-        <div className="flex justify-center mb-8">
-          <Calendar
-            onChange={setSelectedDate}
-            value={selectedDate}
-            locale="pt-PT"
-            minDate={new Date()}
-            prev2Label={null}
-            next2Label={null}
-            className="rounded-xl shadow-lg bg-neutral-900 p-4"
-            formatShortWeekday={formatShortWeekday}
-          />
+        <div className="mb-8 sm:mb-12">
+          <div className="flex justify-center">
+            <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl rounded-3xl p-4 sm:p-6 border border-white/10 shadow-2xl">
+              <Calendar
+                onChange={setSelectedDate}
+                value={selectedDate}
+                locale="pt-PT"
+                minDate={new Date()}
+                prev2Label={null}
+                next2Label={null}
+                className="rounded-xl"
+                formatShortWeekday={formatShortWeekday}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* horários */}
-        <h2 className="text-center text-lg font-semibold text-yellow-400 mb-4">
-          Horários disponíveis em{" "}
-          {selectedDate.toLocaleDateString("pt-PT", {
-            weekday: "long",
-            day: "2-digit",
-            month: "long",
-          })}
-        </h2>
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-white/10 text-center">
+            <h2 className="text-lg sm:text-xl font-semibold text-yellow-400 mb-2">
+              Horários disponíveis
+            </h2>
+            <p className="text-gray-300 text-sm sm:text-base">
+              {selectedDate.toLocaleDateString("pt-PT", {
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+        </div>
 
         {loading && (
-          <p className="text-gray-400 text-center">Carregando horários…</p>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block h-12 w-12 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-400">Carregando horários…</p>
+            </div>
+          </div>
         )}
-        {!!erro && <p className="text-red-400 text-center">{erro}</p>}
+        {!!erro && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-6">
+            <p className="text-red-400 flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {erro}
+            </p>
+          </div>
+        )}
 
         {!loading && !erro && (
-          <div className="grid grid-cols-4 gap-3">
-            {horarios.map((hora) => {
-              const ocupado = ocupados.includes(hora);
-              return (
-                <button
-                  key={hora}
-                  onClick={() => handleEscolherHorario(hora)}
-                  disabled={ocupado}
-                  className={`px-4 py-3 rounded-xl font-semibold shadow-md transition ${
-                    ocupado
-                      ? "bg-neutral-800 text-gray-500 cursor-not-allowed"
-                      : "bg-neutral-800 hover:bg-yellow-500 hover:text-black"
-                  }`}
-                >
-                  {hora}
-                </button>
-              );
-            })}
+          <div>
+            {horarios.length === 0 ? (
+              <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 sm:p-12 border border-white/10 text-center">
+                <svg className="w-16 h-16 mx-auto text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-gray-400 text-lg">Nenhum horário disponível neste dia.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+                {horarios.map((hora) => {
+                  const ocupado = ocupados.includes(hora);
+                  return (
+                    <button
+                      key={hora}
+                      onClick={() => handleEscolherHorario(hora)}
+                      disabled={ocupado}
+                      className={`relative group px-4 py-3 sm:px-5 sm:py-4 rounded-xl sm:rounded-2xl font-semibold text-sm sm:text-base transition-all duration-300 transform ${
+                        ocupado
+                          ? "bg-neutral-800/50 text-gray-500 cursor-not-allowed border border-neutral-700/50"
+                          : "bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl border border-white/10 text-white hover:bg-gradient-to-br hover:from-yellow-500 hover:via-yellow-600 hover:to-yellow-500 hover:text-black hover:border-yellow-500/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25"
+                      }`}
+                    >
+                      {!ocupado && (
+                        <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-yellow-500/0 group-hover:bg-yellow-500/10 transition-colors"></div>
+                      )}
+                      <span className="relative z-10">{hora}</span>
+                      {ocupado && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
