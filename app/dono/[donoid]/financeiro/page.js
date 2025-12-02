@@ -257,173 +257,287 @@ export default function FinanceiroPage() {
   }
 
   return (
-    <div className="p-8 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white">
-      <h1 className="text-3xl font-extrabold text-yellow-500 mb-8 tracking-wide flex items-center gap-2">
-        💰 {financeiroGeral ? "Financeiro Geral" : "Financeiro de Serviços"}
-      </h1>
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Cabeçalho */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-1 h-10 sm:h-12 bg-gradient-to-b from-yellow-500 to-yellow-600 rounded-full"></div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+              {financeiroGeral ? "Financeiro Geral" : "Financeiro de Serviços"}
+            </h1>
+          </div>
+          <p className="text-gray-400 text-sm sm:text-base ml-4">
+            Gerencie e acompanhe todas as receitas da sua barbearia
+          </p>
+        </div>
 
-      {/* Switch + filtros */}
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <span className="text-white/90 font-medium">
-            {financeiroGeral ? "Ver apenas Serviços" : "Incluir Vendas"}
-          </span>
-          <button
-            onClick={() => setFinanceiroGeral((v) => !v)}
-            className={`w-14 h-7 rounded-full p-1 flex items-center transition-all ${
-              financeiroGeral ? "bg-green-500" : "bg-gray-600"
-            }`}
-            type="button"
-          >
-            <span
-              className={`block w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-                financeiroGeral ? "translate-x-7" : ""
-              }`}
-            />
-          </button>
-        </label>
+        {/* Switch + filtros */}
+        <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-5 sm:p-6 rounded-xl border border-yellow-600/30 shadow-2xl mb-6 sm:mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+            {/* Toggle Switch */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <span className="text-white font-semibold text-sm sm:text-base whitespace-nowrap">
+                {financeiroGeral ? "Ver apenas Serviços" : "Incluir Vendas"}
+              </span>
+              <button
+                onClick={() => setFinanceiroGeral((v) => !v)}
+                className={`w-14 h-7 rounded-full p-1 flex items-center transition-all ${
+                  financeiroGeral ? "bg-green-500" : "bg-gray-600"
+                }`}
+                type="button"
+              >
+                <span
+                  className={`block w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                    financeiroGeral ? "translate-x-7" : ""
+                  }`}
+                />
+              </button>
+            </label>
 
-        <select
-          value={mes}
-          onChange={(e) => setMes(e.target.value)}
-          className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
-        >
-          <option value="">Todos os meses</option>
-          {Array.from({ length: 12 }).map((_, i) => {
-            const v = String(i + 1).padStart(2, "0");
-            const label = [
-              "Janeiro",
-              "Fevereiro",
-              "Março",
-              "Abril",
-              "Maio",
-              "Junho",
-              "Julho",
-              "Agosto",
-              "Setembro",
-              "Outubro",
-              "Novembro",
-              "Dezembro",
-            ][i];
-            return (
-              <option key={v} value={v}>
-                {label}
-              </option>
-            );
-          })}
-        </select>
+            {/* Filtros */}
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <select
+                value={mes}
+                onChange={(e) => setMes(e.target.value)}
+                className="flex-1 min-w-[140px] px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-gray-800/70 border border-gray-700 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              >
+                <option value="">Todos os meses</option>
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const v = String(i + 1).padStart(2, "0");
+                  const label = [
+                    "Janeiro",
+                    "Fevereiro",
+                    "Março",
+                    "Abril",
+                    "Maio",
+                    "Junho",
+                    "Julho",
+                    "Agosto",
+                    "Setembro",
+                    "Outubro",
+                    "Novembro",
+                    "Dezembro",
+                  ][i];
+                  return (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
 
-        <input
-          type="number"
-          value={ano}
-          onChange={(e) => setAno(e.target.value)}
-          placeholder="Ano"
-          className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 w-28 focus:ring-2 focus:ring-yellow-500 outline-none"
-        />
+              <input
+                type="number"
+                value={ano}
+                onChange={(e) => setAno(e.target.value)}
+                placeholder="Ano"
+                className="w-24 sm:w-28 px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-gray-800/70 border border-gray-700 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              />
 
-        <input
-          type="date"
-          value={dia}
-          onChange={(e) => setDia(e.target.value)}
-          className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-yellow-500 outline-none"
-        />
+              <input
+                type="date"
+                value={dia}
+                onChange={(e) => setDia(e.target.value)}
+                className="flex-1 min-w-[140px] px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-gray-800/70 border border-gray-700 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              />
 
-        <button
-          onClick={limparFiltros}
-          className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-medium shadow-lg transition"
-        >
-          Limpar
-        </button>
+              <button
+                onClick={limparFiltros}
+                className="px-4 sm:px-5 py-2 sm:py-3 bg-red-600/80 hover:bg-red-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-200 hover:scale-105 text-sm sm:text-base whitespace-nowrap"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
 
-        {/* Exportações */}
-        <button
-          onClick={exportarCSV}
-          className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-black px-5 py-2 rounded-lg font-semibold shadow-lg transition"
-        >
-          <Download size={16} /> CSV
-        </button>
-        <button
-          onClick={exportarPDF}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-semibold shadow-lg transition"
-        >
-          <Download size={16} /> PDF
-        </button>
-      </div>
+          {/* Botões de Exportação */}
+          <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-800">
+            <button
+              onClick={exportarCSV}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black px-5 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:scale-105 text-sm sm:text-base"
+            >
+              <Download size={18} /> Exportar CSV
+            </button>
+            <button
+              onClick={exportarPDF}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-5 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 hover:scale-105 text-sm sm:text-base"
+            >
+              <Download size={18} /> Exportar PDF
+            </button>
+          </div>
+        </div>
 
-      {/* Total */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl shadow-lg mb-8">
-        <h2 className="text-xl font-semibold">
-          Total Recebido:{" "}
-          <span className="text-green-400 font-bold text-2xl">
-            €{total.toFixed(2)}
-          </span>
-        </h2>
-      </div>
+        {/* Total */}
+        <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm border border-yellow-600/30 p-6 sm:p-8 rounded-xl shadow-2xl mb-6 sm:mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-gray-400 text-sm sm:text-base font-semibold mb-2">Total Recebido</h2>
+              <p className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
+                €{total.toFixed(2)}
+              </p>
+            </div>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-600/20 rounded-xl flex items-center justify-center">
+              <svg className="w-8 h-8 sm:w-10 sm:h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
 
-      {/* Tabela */}
-      <div className="overflow-hidden rounded-2xl shadow-lg border border-white/10">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-gray-800/60 text-yellow-500 uppercase text-sm">
-              <th className="p-3">Data</th>
-              <th className="p-3">Tipo</th>
-              <th className="p-3">Cliente/Produto</th>
-              <th className="p-3">Valor (€)</th>
-              <th className="p-3">Responsável</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...agendamentos, ...vendas].length ? (
-              <>
-                {agendamentos.map((a) => (
-                  <tr
-                    key={`serv-${a.id}`}
-                    className="hover:bg-white/5 transition border-b border-gray-700/50"
-                  >
-                    <td className="p-3">
-                      {new Date(a.starts_at).toLocaleString("pt-PT")}
-                    </td>
-                    <td className="p-3 text-yellow-400 font-semibold">Serviço</td>
-                    <td className="p-3">
-                      {a.client_name || "—"} ({a.services?.name || "—"})
-                    </td>
-                    <td className="p-3 font-semibold text-green-400">
-                      €{(a.services?.price ?? 0).toFixed(2)}
-                    </td>
-                    <td className="p-3">
-                      {barberMap[a.barber_id] ||
-                        barberMap[a.user_id] ||
-                        "—"}
-                    </td>
-                  </tr>
-                ))}
-                {financeiroGeral &&
-                  vendas.map((v) => (
+        {/* Desktop - Tabela */}
+        <div className="hidden lg:block overflow-x-auto rounded-xl border border-gray-800 shadow-2xl">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-gradient-to-r from-gray-900 to-gray-950 text-yellow-500 text-sm">
+                <th className="p-4 font-semibold">Data</th>
+                <th className="p-4 font-semibold">Tipo</th>
+                <th className="p-4 font-semibold">Cliente/Produto</th>
+                <th className="p-4 font-semibold">Valor (€)</th>
+                <th className="p-4 font-semibold">Responsável</th>
+              </tr>
+            </thead>
+            <tbody className="bg-gradient-to-br from-gray-900/50 to-gray-950/50">
+              {[...agendamentos, ...vendas].length ? (
+                <>
+                  {agendamentos.map((a) => (
                     <tr
-                      key={`vend-${v.id}`}
-                      className="hover:bg-white/5 transition border-b border-gray-700/50"
+                      key={`serv-${a.id}`}
+                      className="hover:bg-gray-900/80 transition-all duration-200 border-b border-gray-800"
                     >
-                      <td className="p-3">
-                        {new Date(v.data_venda).toLocaleString("pt-PT")}
+                      <td className="p-4 text-gray-300 text-sm">
+                        {new Date(a.starts_at).toLocaleString("pt-PT")}
                       </td>
-                      <td className="p-3 text-blue-400 font-semibold">Produto</td>
-                      <td className="p-3">{v.produto}</td>
-                      <td className="p-3 font-semibold text-green-400">
-                        €{Number(v.total).toFixed(2)}
+                      <td className="p-4">
+                        <span className="inline-flex items-center px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs font-semibold">
+                          Serviço
+                        </span>
                       </td>
-                      <td className="p-3">{v.vendedor || "—"}</td>
+                      <td className="p-4 text-white font-medium">
+                        {a.client_name || "—"} ({a.services?.name || "—"})
+                      </td>
+                      <td className="p-4 font-bold text-green-400 text-lg">
+                        €{(a.services?.price ?? 0).toFixed(2)}
+                      </td>
+                      <td className="p-4 text-gray-300">
+                        {barberMap[a.barber_id] ||
+                          barberMap[a.user_id] ||
+                          "—"}
+                      </td>
                     </tr>
                   ))}
-              </>
-            ) : (
-              <tr>
-                <td colSpan="5" className="p-6 text-center text-gray-400 italic">
-                  Nenhum registro encontrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  {financeiroGeral &&
+                    vendas.map((v) => (
+                      <tr
+                        key={`vend-${v.id}`}
+                        className="hover:bg-gray-900/80 transition-all duration-200 border-b border-gray-800"
+                      >
+                        <td className="p-4 text-gray-300 text-sm">
+                          {new Date(v.data_venda).toLocaleString("pt-PT")}
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+                            Produto
+                          </span>
+                        </td>
+                        <td className="p-4 text-white font-medium">{v.produto}</td>
+                        <td className="p-4 font-bold text-green-400 text-lg">
+                          €{Number(v.total).toFixed(2)}
+                        </td>
+                        <td className="p-4 text-gray-300">{v.vendedor || "—"}</td>
+                      </tr>
+                    ))}
+                </>
+              ) : (
+                <tr>
+                  <td colSpan="5" className="p-10 text-center">
+                    <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-gray-400 text-base">Nenhum registro encontrado</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile - Cards */}
+        <div className="lg:hidden space-y-4">
+          {[...agendamentos, ...vendas].length ? (
+            <>
+              {agendamentos.map((a) => (
+                <div
+                  key={`serv-${a.id}`}
+                  className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-5 rounded-xl border border-gray-800 shadow-xl"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs font-semibold">
+                          Serviço
+                        </span>
+                      </div>
+                      <h3 className="text-white font-bold text-base mb-1">
+                        {a.client_name || "—"}
+                      </h3>
+                      <p className="text-gray-400 text-sm">{a.services?.name || "—"}</p>
+                    </div>
+                    <div className="text-right ml-3">
+                      <p className="text-green-400 font-bold text-xl whitespace-nowrap">
+                        €{(a.services?.price ?? 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-800 text-sm">
+                    <span className="text-gray-400">
+                      {new Date(a.starts_at).toLocaleString("pt-PT")}
+                    </span>
+                    <span className="text-gray-300 font-medium">
+                      {barberMap[a.barber_id] || barberMap[a.user_id] || "—"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {financeiroGeral &&
+                vendas.map((v) => (
+                  <div
+                    key={`vend-${v.id}`}
+                    className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-5 rounded-xl border border-gray-800 shadow-xl"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+                            Produto
+                          </span>
+                        </div>
+                        <h3 className="text-white font-bold text-base">{v.produto}</h3>
+                      </div>
+                      <div className="text-right ml-3">
+                        <p className="text-green-400 font-bold text-xl whitespace-nowrap">
+                          €{Number(v.total).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-800 text-sm">
+                      <span className="text-gray-400">
+                        {new Date(v.data_venda).toLocaleString("pt-PT")}
+                      </span>
+                      <span className="text-gray-300 font-medium">{v.vendedor || "—"}</span>
+                    </div>
+                  </div>
+                ))}
+            </>
+          ) : (
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 border border-gray-800 rounded-xl p-10 text-center">
+              <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-400">Nenhum registro encontrado</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

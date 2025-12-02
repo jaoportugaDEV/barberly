@@ -91,135 +91,196 @@ export default function NovoProdutoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white p-10 flex flex-col items-center">
-      <div className="w-full max-w-2xl backdrop-blur-lg bg-gray-900/60 border border-yellow-600/40 shadow-2xl rounded-3xl p-8 transition-all duration-300 hover:shadow-yellow-600/20">
-        {/* Título */}
-        <div className="flex items-center justify-center mb-8">
-          <PlusCircle size={34} className="text-yellow-500 mr-3" />
-          <h1 className="text-3xl font-extrabold text-yellow-500 tracking-wide">
-            Novo Produto
-          </h1>
-        </div>
-
-        {/* Formulário */}
-        <div className="flex flex-col gap-5">
-          <select
-            value={form.empresa_id}
-            onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
-            className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-          >
-            <option value="">-- Selecione a empresa --</option>
-            {empresas.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.nome}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="text"
-            placeholder="Nome do produto"
-            value={form.nome}
-            onChange={(e) => setForm({ ...form, nome: e.target.value })}
-            className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-          />
-
-          <input
-            type="text"
-            placeholder="Categoria (ex: Shampoo, Creme, Suplemento)"
-            value={form.categoria}
-            onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-            className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-          />
-
-          <textarea
-            placeholder="Descrição do produto"
-            value={form.descricao}
-            onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-            className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none resize-none h-28 transition"
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="number"
-              placeholder="Preço (€)"
-              value={form.preco}
-              onChange={(e) => setForm({ ...form, preco: e.target.value })}
-              className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-            />
-
-            <input
-              type="number"
-              placeholder="Custo (€)"
-              value={form.custo}
-              onChange={(e) => setForm({ ...form, custo: e.target.value })}
-              className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-            />
+    <div className="min-h-screen p-4 sm:p-6 lg:p-10">
+      <div className="max-w-4xl mx-auto">
+        <div className="backdrop-blur-lg bg-gradient-to-br from-gray-900/80 to-gray-950/80 border border-yellow-600/30 shadow-2xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 transition-all duration-300 hover:shadow-yellow-600/20">
+          {/* Título */}
+          <div className="flex items-center justify-center mb-6 sm:mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-600/20 rounded-xl flex items-center justify-center">
+                <PlusCircle size={28} className="text-yellow-500" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent tracking-wide">
+                Novo Produto
+              </h1>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="number"
-              placeholder="Quantidade inicial"
-              value={form.quantidade}
-              onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
-              className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-            />
+          {/* Formulário */}
+          <div className="flex flex-col gap-4 sm:gap-5">
+            <div>
+              <label className="block text-gray-400 text-sm font-semibold mb-2">
+                Empresa *
+              </label>
+              <select
+                value={form.empresa_id}
+                onChange={(e) => setForm({ ...form, empresa_id: e.target.value })}
+                className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              >
+                <option value="">-- Selecione a empresa --</option>
+                {empresas.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <input
-              type="number"
-              placeholder="Estoque mínimo (alerta)"
-              value={form.alerta_minimo}
-              onChange={(e) =>
-                setForm({ ...form, alerta_minimo: e.target.value })
-              }
-              className="p-3 rounded-lg bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 outline-none transition"
-            />
-          </div>
+            <div>
+              <label className="block text-gray-400 text-sm font-semibold mb-2">
+                Nome do Produto *
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Shampoo Anti-Caspa"
+                value={form.nome}
+                onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              />
+            </div>
 
-          {/* Upload de imagem */}
-          <div className="mt-3">
-            <label className="block text-gray-300 mb-2 font-medium">
-              Imagem do produto
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setImagem(e.target.files[0])}
-              className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 
-              file:rounded-lg file:border-0 file:text-sm file:font-semibold 
-              file:bg-yellow-500 file:text-black hover:file:bg-yellow-600 cursor-pointer transition"
-            />
-          </div>
+            <div>
+              <label className="block text-gray-400 text-sm font-semibold mb-2">
+                Categoria
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Shampoo, Creme, Suplemento"
+                value={form.categoria}
+                onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+              />
+            </div>
 
-          <hr className="border-gray-700 my-4" />
+            <div>
+              <label className="block text-gray-400 text-sm font-semibold mb-2">
+                Descrição
+              </label>
+              <textarea
+                placeholder="Descreva o produto..."
+                value={form.descricao}
+                onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+                className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none resize-none h-28 transition-all text-sm sm:text-base"
+              />
+            </div>
 
-          {/* Botões */}
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              onClick={() => router.push(`/dono/${donoid}/estoque`)}
-              className="px-5 py-2 bg-gray-600/80 hover:bg-gray-700 text-white font-medium rounded-lg transition-all duration-300 hover:scale-105"
-            >
-              Cancelar
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-400 text-sm font-semibold mb-2">
+                  Preço de Venda (€) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.preco}
+                  onChange={(e) => setForm({ ...form, preco: e.target.value })}
+                  className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+                />
+              </div>
 
-            <button
-              disabled={loading}
-              onClick={handleSalvar}
-              className={`px-5 py-2 font-semibold rounded-lg transition-all duration-300 hover:scale-105 ${
-                loading
-                  ? "bg-yellow-400/70 cursor-not-allowed"
-                  : "bg-yellow-600 hover:bg-yellow-700 text-black"
-              }`}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="animate-spin" size={18} /> Salvando...
-                </span>
-              ) : (
-                "Salvar Produto"
+              <div>
+                <label className="block text-gray-400 text-sm font-semibold mb-2">
+                  Custo (€)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={form.custo}
+                  onChange={(e) => setForm({ ...form, custo: e.target.value })}
+                  className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-400 text-sm font-semibold mb-2">
+                  Quantidade Inicial
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={form.quantidade}
+                  onChange={(e) => setForm({ ...form, quantidade: e.target.value })}
+                  className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-semibold mb-2">
+                  Estoque Mínimo (Alerta)
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={form.alerta_minimo}
+                  onChange={(e) =>
+                    setForm({ ...form, alerta_minimo: e.target.value })
+                  }
+                  className="w-full p-3 sm:p-4 rounded-xl bg-gray-800/70 border border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            {/* Upload de imagem */}
+            <div className="mt-2">
+              <label className="block text-gray-400 text-sm font-semibold mb-2">
+                Imagem do Produto
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImagem(e.target.files[0])}
+                  className="block w-full text-sm text-gray-400 
+                  file:mr-4 file:py-3 file:px-5 
+                  file:rounded-xl file:border-0 file:text-sm file:font-semibold 
+                  file:bg-gradient-to-r file:from-yellow-500 file:to-yellow-600 
+                  file:text-black hover:file:from-yellow-600 hover:file:to-yellow-700 
+                  cursor-pointer transition-all file:transition-all file:duration-200 file:hover:scale-105
+                  bg-gray-800/70 border border-gray-700 rounded-xl p-2"
+                />
+              </div>
+              {imagem && (
+                <p className="mt-2 text-xs text-green-400 flex items-center gap-2">
+                  <Package size={14} /> {imagem.name}
+                </p>
               )}
-            </button>
+            </div>
+
+            <hr className="border-gray-700/50 my-2" />
+
+            {/* Botões */}
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+              <button
+                onClick={() => router.push(`/dono/${donoid}/estoque`)}
+                className="w-full sm:w-auto px-6 py-3 bg-gray-700/80 hover:bg-gray-700 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 text-sm sm:text-base"
+              >
+                Cancelar
+              </button>
+
+              <button
+                disabled={loading}
+                onClick={handleSalvar}
+                className={`w-full sm:w-auto px-6 py-3 font-semibold rounded-xl transition-all duration-300 text-sm sm:text-base ${
+                  loading
+                    ? "bg-yellow-400/70 cursor-not-allowed text-black"
+                    : "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black hover:scale-105 shadow-lg hover:shadow-xl"
+                }`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="animate-spin" size={18} /> Salvando...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <Package size={18} /> Salvar Produto
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
