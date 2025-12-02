@@ -55,7 +55,30 @@ export default function LoginPage() {
 
       // 🔹 Redireciona conforme tipo de conta
       if (perfil.role === "owner") {
-        router.replace("/dono/[donoid]");
+        // Verifica se tem subscription/trial
+        const { data: subscription } = await supabase
+          .from("subscriptions")
+          .select("status, trial_end")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!subscription) {
+          // Sem trial, redireciona para página de trial
+          router.replace("/trial");
+        } else if (subscription.status === "trial" && subscription.trial_end) {
+          // Verifica se trial expirou
+          const trialEnd = new Date(subscription.trial_end);
+          if (trialEnd < new Date()) {
+            router.replace("/assinatura");
+          } else {
+            router.replace("/dono/[donoid]");
+          }
+        } else if (subscription.status === "active") {
+          router.replace("/dono/[donoid]");
+        } else {
+          // Status inválido, redireciona para assinatura
+          router.replace("/assinatura");
+        }
       } else if (perfil.role === "barber") {
         if (perfil.barbearia_id) {
           router.replace(`/dashboard/${perfil.barbearia_id}`);
@@ -64,7 +87,7 @@ export default function LoginPage() {
           router.replace("/login");
         }
       } else {
-        alert("Tipo de usuário desconhecido.");
+        router.replace("/trial");
       }
 
       // 🔹 Garante cookies da sessão
@@ -186,7 +209,7 @@ export default function LoginPage() {
               <p className="text-gray-400 text-xs sm:text-sm">
                 Não tem conta?{" "}
                 <a
-                  href="/signup"
+                  href="/cadastro"
                   className="text-yellow-500 hover:text-yellow-400 font-medium transition-colors duration-200 hover:underline underline-offset-2"
                 >
                   Cadastre-se

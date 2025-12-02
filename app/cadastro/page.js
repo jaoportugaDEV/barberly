@@ -1,122 +1,106 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import supabase from "../../lib/supabaseClient";
-import { Mail, Lock, User, Store, Loader2 } from "lucide-react";
+import supabase from "@/lib/supabaseClient";
+import { Mail, Lock, CalendarCheck, Loader2, ArrowLeft } from "lucide-react";
 
-export default function SignupDonoPage() {
+export default function CadastroPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [nome, setNome] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    checkTrialOrSubscription();
-  }, []);
-
-  const checkTrialOrSubscription = async () => {
-    try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        // Não está logado, redireciona para trial
-        router.push("/trial");
-        return;
-      }
-
-      // Verifica se tem subscription ou trial ativo
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("status, trial_end")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!subscription) {
-        // Não tem trial nem subscription, redireciona para trial
-        router.push("/trial");
-        return;
-      }
-
-      // Verifica se trial expirou
-      if (subscription.status === "trial" && subscription.trial_end) {
-        const trialEnd = new Date(subscription.trial_end);
-        if (trialEnd < new Date()) {
-          // Trial expirou, redireciona para página de assinatura
-          router.push("/assinatura");
-          return;
-        }
-      }
-
-      // Verifica se não tem assinatura ativa e não está em trial
-      if (subscription.status !== "active" && subscription.status !== "trial") {
-        router.push("/assinatura");
-        return;
-      }
-
-      // Tudo ok, pode continuar no signup
-      setChecking(false);
-    } catch (error) {
-      console.error("Erro ao verificar trial:", error);
-      router.push("/trial");
-    }
-  };
-
-  const handleSignup = async (e) => {
+  const handleCadastro = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Validações
+    if (senha.length < 6) {
+      setError("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+
+    if (senha !== confirmarSenha) {
+      setError("As senhas não coincidem.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        setError("Você precisa estar logado para criar o perfil.");
+      console.log("➡️ Criando nova conta...", { email });
+
+      // 🔹 Cria conta no Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: {
+          data: {
+            role: "owner",
+          },
+        },
+      });
+
+      if (signUpError) {
+        console.error("❌ Erro ao criar conta:", signUpError);
+        setError(signUpError.message || "Erro ao criar conta.");
         return;
       }
 
-      // 🔹 Força a atualização da role do profile
-      const { error: updateError } = await supabase
+      const user = data?.user;
+      if (!user) {
+        setError("Erro inesperado ao criar conta.");
+        return;
+      }
+
+      console.log("✅ Conta criada com sucesso:", user.id);
+
+      // 🔹 Aguarda um momento para o trigger criar o profile
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 🔹 Verifica se o profile foi criado
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .update({
-          name: nome,
-          email: email,
-          role: "owner",
-        })
-        .eq("id", user.id);
+        .select("id")
+        .eq("id", user.id)
+        .single();
 
-      if (updateError) {
-        setError("Erro ao atualizar perfil: " + updateError.message);
-        return;
+      if (profileError || !profile) {
+        console.log("⚠️ Profile não encontrado, criando manualmente...");
+        
+        // Cria profile manualmente se não foi criado pelo trigger
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: email,
+            role: "owner",
+            created_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          console.error("❌ Erro ao criar profile:", insertError);
+        }
       }
 
-      alert("✅ Perfil criado com sucesso!");
-      router.push("/dono/[donoid]");
+      // 🎉 Sucesso! Redireciona para página de escolha (trial ou assinatura)
+      alert("✅ Conta criada com sucesso! Agora escolha seu plano.");
+      router.push("/trial");
+      
     } catch (err) {
-      console.error("💥 Exceção no handleSignup:", err);
-      setError("Ocorreu um erro inesperado ao criar o perfil.");
+      console.error("💥 Exceção no handleCadastro:", err);
+      setError("Ocorreu um erro inesperado. Tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500 mb-4"></div>
-          <p className="text-gray-400">Verificando acesso...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black py-4 sm:py-8">
-      {/* Background decorative elements - reduzidos no mobile */}
+      {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-20 -right-20 w-40 h-40 sm:-top-40 sm:-right-40 sm:w-80 sm:h-80 bg-yellow-600/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-20 -left-20 w-40 h-40 sm:-bottom-40 sm:-left-40 sm:w-80 sm:h-80 bg-yellow-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -133,17 +117,17 @@ export default function SignupDonoPage() {
             {/* Logo/Header */}
             <div className="text-center mb-6 sm:mb-8">
               <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg shadow-yellow-600/30 transform hover:scale-110 transition-transform duration-300">
-                <Store className="w-7 h-7 sm:w-8 sm:h-8 text-black" />
+                <CalendarCheck className="w-7 h-7 sm:w-8 sm:h-8 text-black" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 bg-clip-text text-transparent mb-1 sm:mb-2">
                 Barberly
               </h1>
-              <p className="text-gray-400 text-xs sm:text-sm px-2">Gerencie seu salão com excelência</p>
+              <p className="text-gray-400 text-xs sm:text-sm px-2">Gerencie seus agendamentos com estilo</p>
             </div>
 
             {/* Title */}
             <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-6 sm:mb-8">
-              Complete Seu Perfil
+              Criar nova conta
             </h2>
 
             {/* Error message */}
@@ -154,27 +138,7 @@ export default function SignupDonoPage() {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSignup} className="space-y-4 sm:space-y-5">
-              {/* Nome field */}
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">
-                  Nome Completo
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                  </div>
-                  <input
-                    type="text"
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    placeholder="Seu nome completo"
-                    className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-700 rounded-lg sm:rounded-xl bg-gray-800/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-200 hover:border-gray-600"
-                    required
-                  />
-                </div>
-              </div>
-
+            <form onSubmit={handleCadastro} className="space-y-4 sm:space-y-5">
               {/* Email field */}
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">
@@ -211,6 +175,28 @@ export default function SignupDonoPage() {
                     placeholder="••••••••"
                     className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-700 rounded-lg sm:rounded-xl bg-gray-800/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-200 hover:border-gray-600"
                     required
+                    minLength={6}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Mínimo de 6 caracteres</p>
+              </div>
+
+              {/* Confirm Password field */}
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">
+                  Confirmar Senha
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
+                    <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                  </div>
+                  <input
+                    type="password"
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-700 rounded-lg sm:rounded-xl bg-gray-800/50 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-200 hover:border-gray-600"
+                    required
                   />
                 </div>
               </div>
@@ -229,19 +215,26 @@ export default function SignupDonoPage() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                      Criando perfil…
+                      Criando conta…
                     </>
                   ) : (
-                    "Criar Perfil"
+                    "Criar conta"
                   )}
                 </span>
               </button>
             </form>
 
-            {/* Info */}
+            {/* Login link */}
             <div className="mt-6 sm:mt-8 text-center">
               <p className="text-gray-400 text-xs sm:text-sm">
-                Seus dados estão seguros e protegidos
+                Já tem uma conta?{" "}
+                <a
+                  href="/login"
+                  className="text-yellow-500 hover:text-yellow-400 font-medium transition-colors duration-200 hover:underline underline-offset-2 inline-flex items-center gap-1"
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                  Entrar
+                </a>
               </p>
             </div>
           </div>
@@ -250,3 +243,4 @@ export default function SignupDonoPage() {
     </div>
   );
 }
+

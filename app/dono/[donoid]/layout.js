@@ -20,6 +20,7 @@ import {
   Settings,
   Menu,
   X,
+  CreditCard,
 } from "lucide-react";
 
 export default function DonoLayout({ children }) {
@@ -63,6 +64,7 @@ export default function DonoLayout({ children }) {
     { name: "Agenda", path: "agenda", icon: Calendar },
     { name: "Empresas", path: "barbearias", icon: Building2 },
     { name: "Colaboradores", path: "barbeiros", icon: Users },
+    { name: "Assinatura", path: "assinatura", icon: CreditCard },
     { name: "Configurações", path: "configuracoes", icon: Settings },
   ];
 

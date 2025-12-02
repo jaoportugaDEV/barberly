@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import supabase from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import SubscriptionBanner from "@/components/SubscriptionBanner";
 
 export default function DonoDashboard() {
   const [barbearias, setBarbearias] = useState([]);
@@ -160,6 +161,9 @@ export default function DonoDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Banner de Assinatura */}
+      <SubscriptionBanner />
+
       <div className="mb-6 lg:mb-8">
         <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-2">
           Dashboard do Dono
