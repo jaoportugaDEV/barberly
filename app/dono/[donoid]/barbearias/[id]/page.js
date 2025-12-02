@@ -5,6 +5,23 @@ import { useParams } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 import Cropper from "react-easy-crop";
 import getCroppedImg from "@/utils/cropImage"; // função util de crop
+import {
+  Building2,
+  MapPin,
+  Phone,
+  Clock,
+  Globe,
+  Image as ImageIcon,
+  Upload,
+  X,
+  CheckCircle2,
+  XCircle,
+  Save,
+  Trash2,
+  Loader2,
+  Calendar,
+  FileText,
+} from "lucide-react";
 
 // =======================
 // COMPONENTE TAB DADOS
@@ -154,102 +171,180 @@ function TabDados({ barbearia, setBarbearia }) {
   return (
     <form
       onSubmit={handleSave}
-      className="space-y-3 bg-gray-900 p-6 rounded-lg border border-gray-700"
+      className="space-y-6 bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-6 rounded-xl border border-gray-800 shadow-xl"
     >
-      <input
-        type="text"
-        placeholder="Nome"
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
-      <input
-        type="text"
-        placeholder="Endereço"
-        value={endereco}
-        onChange={(e) => setEndereco(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
-      <input
-        type="text"
-        placeholder="Telefone"
-        value={telefone}
-        onChange={(e) => setTelefone(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
-      <input
-        type="text"
-        placeholder="Cidade"
-        value={cidade}
-        onChange={(e) => setCidade(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
-      <textarea
-        placeholder="Sobre a barbearia"
-        value={sobre}
-        onChange={(e) => setSobre(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white min-h-[100px]"
-      />
-
-      {/* 🔹 Horários */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <label className="block text-sm text-gray-300 mb-1">Abertura</label>
-          <input
-            type="time"
-            value={horaAbertura}
-            onChange={(e) => setHoraAbertura(e.target.value)}
-            step="900"
-            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-          />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            Nome da barbearia
+          </label>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Digite o nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+            />
+          </div>
         </div>
 
-        <div className="flex-1">
-          <label className="block text-sm text-gray-300 mb-1">Fechamento</label>
-          <input
-            type="time"
-            value={horaFechamento}
-            onChange={(e) => setHoraFechamento(e.target.value)}
-            step="900"
-            className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            Telefone
+          </label>
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Digite o telefone"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            Endereço
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Digite o endereço completo"
+              value={endereco}
+              onChange={(e) => setEndereco(e.target.value)}
+              className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            Cidade
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Digite a cidade"
+              value={cidade}
+              onChange={(e) => setCidade(e.target.value)}
+              className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-400 mb-2">
+            Link do Google Maps
+          </label>
+          <div className="relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Cole a URL do Google Maps"
+              value={mapsUrl}
+              onChange={(e) => setMapsUrl(e.target.value)}
+              className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-2">
+          Sobre a barbearia
+        </label>
+        <div className="relative">
+          <FileText className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
+          <textarea
+            placeholder="Descreva sua barbearia..."
+            value={sobre}
+            onChange={(e) => setSobre(e.target.value)}
+            className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 min-h-[120px] resize-y transition-all"
           />
         </div>
       </div>
 
-      {/* 🔹 Link do Google Maps */}
-      <input
-        type="text"
-        placeholder="Link do Google Maps (colar a URL do local)"
-        value={mapsUrl}
-        onChange={(e) => setMapsUrl(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white"
-      />
+      {/* 🔹 Horários */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-400 mb-3">
+          Horário de funcionamento
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">Abertura</label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <input
+                type="time"
+                value={horaAbertura}
+                onChange={(e) => setHoraAbertura(e.target.value)}
+                step="900"
+                className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">Fechamento</label>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+              <input
+                type="time"
+                value={horaFechamento}
+                onChange={(e) => setHoraFechamento(e.target.value)}
+                step="900"
+                className="w-full pl-10 pr-3 py-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white transition-all"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 🔹 Foto de ajuda */}
-      <div className="mt-2 space-y-2">
-        <p className="text-sm text-gray-300">
-          Foto de ajuda (opcional) — aparece no “Sobre” da página pública.
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-gray-400">
+          Foto de ajuda (opcional)
+        </label>
+        <p className="text-xs text-gray-500">
+          Esta foto aparece na seção "Sobre" da página pública da barbearia.
         </p>
 
         {ajudaFotoUrl ? (
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
             <img
               src={ajudaFotoUrl}
               alt="Foto de ajuda"
-              className="w-28 h-28 object-cover rounded border border-gray-700"
+              className="w-32 h-32 object-cover rounded-lg border border-gray-700"
             />
             <button
               type="button"
               onClick={handleRemoverAjuda}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded"
+              className="flex items-center gap-2 bg-red-600/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all duration-200 hover:scale-105"
             >
-              Remover foto de ajuda
+              <Trash2 className="w-4 h-4" />
+              Remover foto
             </button>
           </div>
         ) : (
           <label className="inline-block">
-            <span className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg cursor-pointer">
-              {uploadingAjuda ? "Enviando..." : "Escolher foto de ajuda"}
+            <span className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black font-semibold px-6 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-105 shadow-lg">
+              {uploadingAjuda ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  Escolher foto de ajuda
+                </>
+              )}
             </span>
             <input
               type="file"
@@ -262,21 +357,31 @@ function TabDados({ barbearia, setBarbearia }) {
         )}
       </div>
 
-      <button
-        type="submit"
-        className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg"
-      >
-        Salvar alterações
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-800">
+        <button
+          type="submit"
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+        >
+          <Save className="w-5 h-5" />
+          Salvar alterações
+        </button>
+      </div>
 
       {!!msg && (
-        <p
-          className={`mt-2 text-sm font-semibold ${
-            msg.startsWith("✅") ? "text-green-400" : "text-red-400"
+        <div
+          className={`p-4 rounded-xl border flex items-center gap-3 ${
+            msg.startsWith("✅")
+              ? "bg-green-500/10 border-green-500/30 text-green-400"
+              : "bg-red-500/10 border-red-500/30 text-red-400"
           }`}
         >
-          {msg}
-        </p>
+          {msg.startsWith("✅") ? (
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <XCircle className="w-5 h-5 flex-shrink-0" />
+          )}
+          <p className="text-sm font-semibold">{msg}</p>
+        </div>
       )}
     </form>
   );
@@ -357,12 +462,31 @@ function TabFotos({ barbeariaId }) {
   };
 
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4 text-yellow-500">Fotos</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-1">
+            Galeria de Fotos
+          </h2>
+          <p className="text-gray-400 text-sm">
+            Adicione fotos da sua barbearia para exibir na página pública
+          </p>
+        </div>
+      </div>
 
-      <label className="inline-block mb-4">
-        <span className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-4 py-2 rounded-lg cursor-pointer">
-          {uploading ? "Enviando..." : "Adicionar Foto"}
+      <label className="inline-block">
+        <span className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black font-semibold px-6 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-105 shadow-lg">
+          {uploading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Enviando...
+            </>
+          ) : (
+            <>
+              <Upload className="w-5 h-5" />
+              Adicionar Foto
+            </>
+          )}
         </span>
         <input
           type="file"
@@ -375,68 +499,105 @@ function TabFotos({ barbeariaId }) {
 
       {/* Crop modal */}
       {cropSrc && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50">
-          <div className="relative w-[90%] max-w-lg h-[400px] bg-gray-900 rounded-lg">
-            <Cropper
-              image={cropSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={4 / 3}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={(_, cropped) => setCroppedAreaPixels(cropped)}
-            />
-          </div>
-          <div className="flex gap-4 mt-4">
-            <button
-              onClick={() => setCropSrc(null)}
-              className="bg-red-600 px-4 py-2 rounded-lg text-white"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCropSave}
-              className="bg-green-600 px-4 py-2 rounded-lg text-white"
-            >
-              Salvar
-            </button>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl border border-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">Ajustar Foto</h3>
+              <button
+                onClick={() => setCropSrc(null)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="relative w-full h-[400px] bg-gray-800 rounded-lg overflow-hidden">
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={4 / 3}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={(_, cropped) => setCroppedAreaPixels(cropped)}
+                style={{
+                  containerStyle: { borderRadius: "8px" },
+                }}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              <button
+                onClick={() => setCropSrc(null)}
+                className="flex-1 flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-all duration-200"
+              >
+                <X className="w-5 h-5" />
+                Cancelar
+              </button>
+              <button
+                onClick={handleCropSave}
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <Save className="w-5 h-5" />
+                Salvar Foto
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Grid de fotos */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {fotos.map((foto) => (
-          <div
-            key={foto.id}
-            className="relative rounded-lg border border-gray-700 overflow-hidden"
-          >
-            <img
-              src={foto.url}
-              alt="Foto da barbearia"
-              className="w-full h-60 object-cover cursor-pointer"
-              onClick={() => setLightbox(foto.url)}
-            />
-            <button
-              onClick={() => handleDelete(foto.id, foto.url)}
-              className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded opacity-80 hover:opacity-100"
+      {fotos.length === 0 ? (
+        <div className="bg-gradient-to-br from-gray-900/50 to-gray-950/50 border border-gray-800 rounded-xl p-12 text-center">
+          <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 text-lg mb-2">
+            Nenhuma foto adicionada ainda.
+          </p>
+          <p className="text-gray-500 text-sm">
+            Adicione fotos da sua barbearia para exibir na página pública.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+          {fotos.map((foto) => (
+            <div
+              key={foto.id}
+              className="group relative rounded-xl border border-gray-800 overflow-hidden bg-gray-900 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-2xl"
             >
-              Excluir
-            </button>
-          </div>
-        ))}
-      </div>
+              <img
+                src={foto.url}
+                alt="Foto da barbearia"
+                className="w-full h-64 object-cover cursor-pointer transition-transform duration-300 group-hover:scale-110"
+                onClick={() => setLightbox(foto.url)}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <button
+                onClick={() => handleDelete(foto.id, foto.url)}
+                className="absolute top-3 right-3 bg-red-600/90 hover:bg-red-600 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                title="Excluir foto"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setLightbox(null)}
         >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
           <img
             src={lightbox}
             alt="Foto ampliada"
-            className="max-w-[90%] max-h-[90%] object-contain rounded-lg"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}
@@ -467,37 +628,59 @@ export default function BarbeariaEditPage() {
     if (id) fetchBarbearia();
   }, [id]);
 
-  if (!barbearia) return <p className="p-6 text-gray-400">Carregando...</p>;
+  if (!barbearia) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-yellow-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Carregando informações...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 text-white">
-        Editar: {barbearia.nome}
-      </h1>
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6 lg:mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-1 h-8 bg-gradient-to-b from-yellow-500 to-yellow-600 rounded-full"></div>
+          <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+            Editar: {barbearia.nome}
+          </h1>
+        </div>
+        <p className="text-gray-400 text-sm lg:text-base ml-4">
+          Gerencie os dados e fotos da sua barbearia
+        </p>
+      </div>
 
-      <div className="flex space-x-4 mb-6 border-b border-gray-700">
+      {/* Tabs */}
+      <div className="flex space-x-1 mb-6 bg-gray-900/50 rounded-lg p-1 border border-gray-800">
         <button
           onClick={() => setTab("dados")}
-          className={`pb-2 ${
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
             tab === "dados"
-              ? "border-b-2 border-yellow-500 text-yellow-500"
-              : "text-gray-400"
+              ? "bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg"
+              : "text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50"
           }`}
         >
-          Dados
+          <FileText className="w-5 h-5" />
+          <span>Dados</span>
         </button>
         <button
           onClick={() => setTab("fotos")}
-          className={`pb-2 ${
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
             tab === "fotos"
-              ? "border-b-2 border-yellow-500 text-yellow-500"
-              : "text-gray-400"
+              ? "bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg"
+              : "text-gray-400 hover:text-yellow-400 hover:bg-gray-800/50"
           }`}
         >
-          Fotos
+          <ImageIcon className="w-5 h-5" />
+          <span>Fotos</span>
         </button>
       </div>
 
+      {/* Tab Content */}
       {tab === "dados" && (
         <TabDados barbearia={barbearia} setBarbearia={setBarbearia} />
       )}
@@ -505,3 +688,4 @@ export default function BarbeariaEditPage() {
     </div>
   );
 }
+
