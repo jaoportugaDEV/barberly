@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import supabase from "@/lib/supabaseClient";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import {
-  CalendarDays,
-  Clock3,
-  PlusCircle,
-  Users2,
-  Wallet2,
+  Calendar,
+  Plus,
+  Clock,
+  User,
+  Phone,
+  Euro,
+  CheckCircle2,
+  Trash2,
+  X,
+  MessageCircle,
 } from "lucide-react";
 
 dayjs.locale("pt-br");
@@ -19,7 +24,10 @@ export default function AgendaBarbeiroPage() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [servicos, setServicos] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalInfo, setModalInfo] = useState(null); // 🔹 Novo: detalhes do cliente
+  const [modalInfo, setModalInfo] = useState(null);
+  const [diaAtivo, setDiaAtivo] = useState(0);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
   const [novoAgendamento, setNovoAgendamento] = useState({
     client_name: "",
     service_id: "",
@@ -27,14 +35,20 @@ export default function AgendaBarbeiroPage() {
     horario: "",
   });
   const hoje = dayjs();
-  const diasDaSemana = Array.from({ length: 5 }, (_, i) => {
-    const dia = hoje.add(i, "day");
-    return {
+  
+  // 📅 Dias da semana (7 dias)
+  const diasDaSemana = [];
+  for (let i = 0; i < 7; i++) {
+    const dia = hoje.locale("pt-br").add(i, "day");
+    diasDaSemana.push({
       label: dia.format("dddd, DD/MM"),
+      labelCurto: dia.format("ddd DD/MM"),
+      diaNome: dia.format("dddd"),
+      diaNumero: dia.format("DD/MM"),
       valor: dia.format("YYYY-MM-DD"),
-      isToday: dia.isSame(hoje, "day"),
-    };
-  });
+    });
+  }
+  
   const hojeISO = hoje.format("YYYY-MM-DD");
   const agendamentosHoje = agendamentos.filter(
     (a) => a.starts_at.split("T")[0] === hojeISO
@@ -59,32 +73,34 @@ export default function AgendaBarbeiroPage() {
       (a, b) =>
         dayjs(a.starts_at).valueOf() - dayjs(b.starts_at).valueOf()
     )[0];
-  const stats = [
-    {
-      label: "Hoje",
-      value: agendamentosHoje.length,
-      helper: "agendamentos",
-      icon: CalendarDays,
-    },
-    {
-      label: "Semana",
-      value: totalSemana,
-      helper: "clientes previstos",
-      icon: Users2,
-    },
-    {
-      label: "Tempo total",
-      value: tempoHoje ? `${tempoHoje} min` : "0 min",
-      helper: "ocupado hoje",
-      icon: Clock3,
-    },
-    {
-      label: "Receita",
-      value: `€${valorHoje.toFixed(2)}`,
-      helper: "prevista hoje",
-      icon: Wallet2,
-    },
-  ];
+  // 📊 Contar agendamentos por dia
+  const contagemPorDia = diasDaSemana.map((dia) => {
+    return agendamentos.filter((a) => a.starts_at.split("T")[0] === dia.valor).length;
+  });
+
+  // 👆 Handlers de swipe
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current - touchEndX.current > 75) {
+      // Swipe left - próximo dia
+      if (diaAtivo < diasDaSemana.length - 1) {
+        setDiaAtivo(diaAtivo + 1);
+      }
+    }
+    if (touchStartX.current - touchEndX.current < -75) {
+      // Swipe right - dia anterior
+      if (diaAtivo > 0) {
+        setDiaAtivo(diaAtivo - 1);
+      }
+    }
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -137,12 +153,13 @@ export default function AgendaBarbeiroPage() {
     }
   }
 
+  // 🕐 Gerar horários disponíveis
   function gerarHorariosDisponiveis() {
-    if (!novoAgendamento.data) return { horarios: [], ocupados: [] };
+    if (!novoAgendamento.data) return [];
 
     const dataSelecionada = novoAgendamento.data;
     const agsDoDia = agendamentos.filter(
-      (a) => a.starts_at.split("T")[0] === dataSelecionada
+      (a) => a.starts_at.split("T")[0] === dataSelecionada && a.status !== "concluido"
     );
 
     const horarios = [];
@@ -170,26 +187,24 @@ export default function AgendaBarbeiroPage() {
     const duracaoServico = servicoSelecionado?.duration_minutes || 0;
     const slotsServico = Math.ceil(duracaoServico / 15);
 
-    const ocupadosComConflito = new Set([...ocupados]);
-    if (duracaoServico > 0) {
-      horarios.forEach((h) => {
-        const inicio = dayjs(`${dataSelecionada}T${h}`);
-        let conflito = false;
-        for (let i = 0; i < slotsServico; i++) {
-          const slot = inicio.add(i * 15, "minute").format("HH:mm");
-          if (ocupados.has(slot)) {
-            conflito = true;
-            break;
-          }
+    const listaHorarios = horarios.map((h) => {
+      // Verificar se o horário ou os slots seguintes estão ocupados
+      let ocupado = false;
+      const inicio = dayjs(`${dataSelecionada}T${h}`);
+      for (let i = 0; i < slotsServico; i++) {
+        const slot = inicio.add(i * 15, "minute").format("HH:mm");
+        if (ocupados.has(slot)) {
+          ocupado = true;
+          break;
         }
-        if (conflito) ocupadosComConflito.add(h);
-      });
-    }
+      }
+      return { hora: h, ocupado };
+    });
 
-    return { horarios, ocupados: Array.from(ocupadosComConflito) };
+    return listaHorarios;
   }
 
-  const { horarios, ocupados } = gerarHorariosDisponiveis();
+  const horarios = gerarHorariosDisponiveis();
 
   async function handleSalvarAgendamento() {
     try {
@@ -280,283 +295,390 @@ export default function AgendaBarbeiroPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white p-4 lg:p-8 space-y-8">
-      <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-gray-500">
-            Agenda
-          </p>
-          <h1 className="text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-            Minha Agenda
-          </h1>
-          <p className="text-gray-400 max-w-xl mt-2">
-            Controle os horários dos próximos dias e tenha visibilidade total
-            dos clientes confirmados.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={carregarServicosEAgendamentos}
-            className="px-5 py-3 rounded-xl border border-gray-700 text-gray-200 hover:text-yellow-400 hover:border-yellow-500 transition"
-          >
-            Sincronizar agenda
-          </button>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 via-yellow-500 to-yellow-600 px-5 py-3 rounded-xl text-black font-semibold shadow-lg shadow-yellow-600/30 hover:scale-[1.02] transition"
-          >
-            <PlusCircle size={18} />
-            Novo agendamento
-          </button>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map(({ label, value, helper, icon: Icon }) => (
-          <div
-            key={label}
-            className="rounded-2xl border border-gray-800/70 bg-gray-900/40 backdrop-blur-sm p-4"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">{label}</p>
-              <span className="p-2 rounded-full bg-gray-800">
-                <Icon size={18} className="text-yellow-400" />
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-white mt-2">{value}</p>
-            <p className="text-xs uppercase tracking-wide text-gray-500">
-              {helper}
-            </p>
-          </div>
-        ))}
-      </section>
-
-      {proximoAgendamento && (
-        <section className="rounded-2xl border border-yellow-600/40 bg-gradient-to-r from-gray-900/80 to-gray-900/40 p-5 space-y-3 shadow-lg shadow-yellow-600/10">
-          <p className="text-xs uppercase tracking-[0.4em] text-yellow-400">
-            Próximo cliente
-          </p>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-2xl font-semibold text-yellow-200">
-                {proximoAgendamento.client_name}
-              </p>
-              <p className="text-gray-400">
-                {proximoAgendamento.services?.name || "Serviço"} •{" "}
-                {dayjs(proximoAgendamento.starts_at).format(
-                  "DD/MM [às] HH:mm"
-                )}
+    <div className="max-w-7xl mx-auto pb-24">
+      {/* Header */}
+      <div className="mb-4 lg:mb-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-1">
+                Minha Agenda
+              </h1>
+              <p className="text-gray-400 text-xs lg:text-base">
+                Gerencie todos os seus agendamentos
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => setModalInfo(proximoAgendamento)}
-                className="px-4 py-2 rounded-xl border border-gray-700 text-gray-200 hover:border-yellow-500 hover:text-yellow-400 transition"
-              >
-                Ver detalhes
-              </button>
-              <button
-                onClick={() => handleConcluirAgendamento(proximoAgendamento)}
-                className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold transition"
-              >
-                Concluir e receber
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">
-              Próximos 5 dias
-            </h2>
-            <p className="text-sm text-gray-400">
-              No celular, arraste lateralmente para navegar pelos dias.
-            </p>
+            {/* Botão Desktop */}
+            <button
+              onClick={() => {
+                setNovoAgendamento({
+                  client_name: "",
+                  service_id: "",
+                  data: "",
+                  horario: "",
+                });
+                setModalOpen(true);
+              }}
+              className="hidden lg:flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 px-5 py-3 rounded-xl font-semibold text-black shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              <Plus size={20} />
+              Novo Agendamento
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-2 px-2 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-5 lg:snap-none lg:overflow-visible">
-          {diasDaSemana.map((dia) => {
-            const ags = agendamentos.filter(
-              (a) => a.starts_at.split("T")[0] === dia.valor
-            );
+      {/* Tabs Horizontais */}
+      <div className="mb-4 overflow-x-auto pb-2 hide-scrollbar">
+        <div className="flex gap-2 min-w-max lg:grid lg:grid-cols-7">
+          {diasDaSemana.map((dia, index) => {
+            const isToday = dia.valor === dayjs().format("YYYY-MM-DD");
+            const isAtivo = diaAtivo === index;
+            const qtd = contagemPorDia[index];
             return (
-              <div
+              <button
                 key={dia.valor}
-                className={`min-w-[250px] lg:min-w-0 rounded-2xl p-4 border backdrop-blur bg-gray-900/40 ${
-                  dia.isToday
-                    ? "border-yellow-500/60 shadow-lg shadow-yellow-500/20"
-                    : "border-gray-800/70"
+                onClick={() => setDiaAtivo(index)}
+                className={`flex-shrink-0 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 relative ${
+                  isAtivo
+                    ? "bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg scale-105"
+                    : isToday
+                    ? "bg-gray-800/80 text-yellow-400 border border-yellow-600/30"
+                    : "bg-gray-800/50 text-gray-400 border border-gray-700/50 hover:border-yellow-600/30 hover:text-yellow-400"
                 }`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold capitalize">
-                    {dia.label}
-                  </h3>
-                  {dia.isToday && (
-                    <span className="text-xs font-semibold text-yellow-300 bg-yellow-300/10 px-2 py-1 rounded-full">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="capitalize text-xs lg:text-sm">
+                    {dia.diaNome.substring(0, 3)}
+                  </span>
+                  <span className="font-bold">{dia.diaNumero.split("/")[0]}</span>
+                  {qtd > 0 && (
+                    <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${
+                      isAtivo ? "bg-black text-yellow-500" : "bg-yellow-500 text-black"
+                    }`}>
+                      {qtd}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Área com Swipe */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-[400px]"
+      >
+        {/* Conteúdo do Dia Ativo */}
+        {diasDaSemana.map((dia, index) => {
+          if (index !== diaAtivo) return null;
+          
+          const ags = agendamentos.filter(
+            (a) => a.starts_at.split("T")[0] === dia.valor
+          );
+          const isToday = dia.valor === dayjs().format("YYYY-MM-DD");
+          
+          return (
+            <div key={dia.valor} className="animate-fadeIn">
+              {/* Cabeçalho do Dia */}
+              <div className={`bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-4 rounded-t-xl border-t border-x ${
+                isToday ? "border-yellow-600/50" : "border-gray-800"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-yellow-500" />
+                    <div>
+                      <h2 className="font-bold capitalize text-yellow-400 text-lg">
+                        {dia.diaNome}
+                      </h2>
+                      <p className="text-gray-400 text-xs">{dia.diaNumero}</p>
+                    </div>
+                  </div>
+                  {isToday && (
+                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-semibold rounded-full border border-yellow-500/30">
                       Hoje
                     </span>
                   )}
                 </div>
+              </div>
 
+              {/* Lista de Agendamentos */}
+              <div className={`bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-4 rounded-b-xl border-b border-x space-y-3 ${
+                isToday ? "border-yellow-600/50" : "border-gray-800"
+              }`}>
                 {ags.length > 0 ? (
-                  <div className="space-y-3">
-                    {ags.map((a) => (
-                      <div
-                        key={a.id}
-                        onClick={() => setModalInfo(a)}
-                        className="rounded-2xl border border-gray-800/80 bg-gray-950/60 p-3 cursor-pointer transition hover:border-yellow-500/60"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-yellow-200">
+                  ags.map((a) => (
+                    <div
+                      key={a.id}
+                      onClick={() => setModalInfo(a)}
+                      className={`bg-gray-800/60 p-3 rounded-xl border cursor-pointer hover:border-yellow-500/50 transition-all duration-200 hover:shadow-lg active:scale-[0.98] ${
+                        a.status === "concluido"
+                          ? "border-green-500/30 bg-green-500/5"
+                          : "border-gray-700/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                            <p className="font-bold text-white text-base truncate">
                               {a.client_name}
                             </p>
-                            <p className="text-sm text-gray-400">
-                              {a.services?.name || "Serviço"} ·{" "}
-                              {dayjs(a.starts_at).format("HH:mm")} (
-                              {a.services?.duration_minutes || 0} min)
-                            </p>
                           </div>
-                          <span className="text-xs font-semibold text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
-                            €
-                            {(a.services?.price || 0).toFixed(2)}
-                          </span>
+                          <div className="flex items-center gap-3 text-sm text-gray-400">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="font-medium">{dayjs(a.starts_at).format("HH:mm")}</span>
+                            </div>
+                            <span className="text-gray-600">•</span>
+                            <span className="truncate">{a.services?.name || "Serviço"}</span>
+                          </div>
                         </div>
-                        <div className="flex gap-2 mt-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleConcluirAgendamento(a);
-                            }}
-                            className="flex-1 px-2 py-1 rounded-lg bg-green-600/90 hover:bg-green-600 text-xs font-semibold"
-                          >
-                            Concluir
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExcluirAgendamento(a.id);
-                            }}
-                            className="px-2 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-xs font-semibold"
-                          >
-                            Excluir
-                          </button>
-                        </div>
+
+                        {a.status === "concluido" ? (
+                          <div className="flex items-center gap-1.5 text-green-400 text-sm font-semibold whitespace-nowrap bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/20">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Concluído</span>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConcluirAgendamento(a);
+                              }}
+                              className="bg-green-600/80 hover:bg-green-600 text-white p-2 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                              title="Concluir"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExcluirAgendamento(a.id);
+                              }}
+                              className="bg-red-600/80 hover:bg-red-600 text-white p-2 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 ) : (
-                  <div className="text-sm text-gray-500 bg-gray-900/50 border border-dashed border-gray-700 rounded-xl p-4">
-                    Sem agendamentos
+                  <div className="bg-gray-800/30 rounded-xl p-12 text-center border border-gray-800/50">
+                    <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm font-medium">Sem agendamentos neste dia</p>
+                    <p className="text-gray-600 text-xs mt-1">Deslize para ver outros dias</p>
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </section>
+            </div>
+          );
+        })}
+      </div>
 
+      {/* FAB - Floating Action Button (Mobile) */}
+      <button
+        onClick={() => {
+          setNovoAgendamento({
+            client_name: "",
+            service_id: "",
+            data: "",
+            horario: "",
+          });
+          setModalOpen(true);
+        }}
+        className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black rounded-full shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center z-40"
+        aria-label="Novo Agendamento"
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </button>
+
+      {/* Modal de detalhes */}
       {modalInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-            <h2 className="text-xl font-bold text-yellow-400 text-center">
-              Detalhes do agendamento
-            </h2>
-            <div className="text-sm text-gray-300 space-y-2">
-              <p>
-                <span className="text-yellow-400 font-semibold">Cliente:</span>{" "}
-                {modalInfo.client_name}
-              </p>
-              <p>
-                <span className="text-yellow-400 font-semibold">Telefone:</span>{" "}
-                {modalInfo.client_phone || "Não informado"}
-              </p>
-              <p>
-                <span className="text-yellow-400 font-semibold">Serviço:</span>{" "}
-                {modalInfo.services?.name || "—"}
-              </p>
-              <p>
-                <span className="text-yellow-400 font-semibold">Data:</span>{" "}
-                {dayjs(modalInfo.starts_at).format("DD/MM/YYYY")}
-              </p>
-              <p>
-                <span className="text-yellow-400 font-semibold">Hora:</span>{" "}
-                {dayjs(modalInfo.starts_at).format("HH:mm")}
-              </p>
-              <p>
-                <span className="text-yellow-400 font-semibold">Valor:</span>{" "}
-                €{modalInfo.services?.price?.toFixed(2) || "0.00"}
-              </p>
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4"
+          onClick={() => setModalInfo(null)}
+        >
+          <div
+            className="bg-gradient-to-br from-gray-900 to-gray-950 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-800 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+                Detalhes do Agendamento
+              </h2>
+              <button
+                onClick={() => setModalInfo(null)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <User className="w-4 h-4 text-yellow-500" />
+                  <span className="text-yellow-400 font-semibold text-sm">Cliente</span>
+                </div>
+                <p className="text-white font-medium ml-6">{modalInfo.client_name}</p>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Phone className="w-4 h-4 text-yellow-500" />
+                  <span className="text-yellow-400 font-semibold text-sm">Telefone</span>
+                </div>
+                <p className="text-gray-300 ml-6">
+                  {modalInfo.client_phone || "Não informado"}
+                </p>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Calendar className="w-4 h-4 text-yellow-500" />
+                  <span className="text-yellow-400 font-semibold text-sm">Serviço</span>
+                </div>
+                <p className="text-gray-300 ml-6">{modalInfo.services?.name || "—"}</p>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4 text-yellow-500" />
+                  <span className="text-yellow-400 font-semibold text-sm">Horário</span>
+                </div>
+                <p className="text-gray-300 ml-6">
+                  {dayjs(modalInfo.starts_at).format("DD/MM/YYYY [às] HH:mm")}
+                </p>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Euro className="w-4 h-4 text-yellow-500" />
+                  <span className="text-yellow-400 font-semibold text-sm">Valor</span>
+                </div>
+                <p className="text-yellow-400 font-semibold ml-6">
+                  €{modalInfo.services?.price?.toFixed(2) || "—"}
+                </p>
+              </div>
+
+              <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                <span className="text-yellow-400 font-semibold text-sm">Status</span>
+                <div className="mt-1">
+                  {modalInfo.status === "concluido" ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-semibold">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Concluído
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full text-xs font-semibold">
+                      <Clock className="w-3 h-3" />
+                      Agendado
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {modalInfo.client_phone && (
               <a
                 href={`https://wa.me/${modalInfo.client_phone.replace(/\D/g, "")}`}
                 target="_blank"
-                rel="noreferrer"
-                className="block mt-4 w-full text-center bg-green-600 hover:bg-green-500 text-white font-semibold py-2 rounded-lg transition"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 mb-4"
               >
-                💬 Enviar WhatsApp
+                <MessageCircle className="w-5 h-5" />
+                Enviar mensagem no WhatsApp
               </a>
             )}
 
-            <div className="flex justify-end">
-              <button
-                onClick={() => setModalInfo(null)}
-                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black font-semibold rounded-lg transition"
-              >
-                Fechar
-              </button>
-            </div>
+            <button
+              onClick={() => setModalInfo(null)}
+              className="w-full px-4 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}
 
+      {/* Modal de novo agendamento */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <h2 className="text-xl font-bold text-yellow-400">
-              Novo agendamento
-            </h2>
-
-            <div className="flex flex-col gap-4">
-              <input
-                type="text"
-                placeholder="Nome do cliente"
-                value={novoAgendamento.client_name}
-                onChange={(e) =>
-                  setNovoAgendamento({
-                    ...novoAgendamento,
-                    client_name: e.target.value,
-                  })
-                }
-                className="p-3 rounded-xl bg-gray-900 border border-gray-800 focus:ring-2 focus:ring-yellow-500 outline-none"
-              />
-
-              <select
-                value={novoAgendamento.service_id}
-                onChange={(e) =>
-                  setNovoAgendamento({
-                    ...novoAgendamento,
-                    service_id: e.target.value,
-                  })
-                }
-                className="p-3 rounded-xl bg-gray-900 border border-gray-800 focus:ring-2 focus:ring-yellow-500 outline-none"
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="bg-gradient-to-br from-gray-900 to-gray-950 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-800 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+                Novo Agendamento
+              </h2>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition"
               >
-                <option value="">-- Selecione o serviço --</option>
-                {servicos.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — €{s.price} ({s.duration_minutes} min)
-                  </option>
-                ))}
-              </select>
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-400 mb-2">
+                  Nome do Cliente
+                </label>
+                <input
+                  type="text"
+                  placeholder="Digite o nome do cliente"
+                  value={novoAgendamento.client_name}
+                  onChange={(e) =>
+                    setNovoAgendamento({
+                      ...novoAgendamento,
+                      client_name: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white placeholder-gray-500 transition-all"
+                />
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-400 mb-2">
+                  Serviço
+                </label>
+                <select
+                  value={novoAgendamento.service_id}
+                  onChange={(e) =>
+                    setNovoAgendamento({
+                      ...novoAgendamento,
+                      service_id: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white transition-all"
+                >
+                  <option value="" className="bg-gray-800">Selecione o serviço</option>
+                  {servicos.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-gray-800">
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-400 mb-2">
+                  Data
+                </label>
                 <input
                   type="date"
                   value={novoAgendamento.data}
@@ -566,9 +688,14 @@ export default function AgendaBarbeiroPage() {
                       data: e.target.value,
                     })
                   }
-                  className="p-3 rounded-xl bg-gray-900 border border-gray-800 focus:ring-2 focus:ring-yellow-500 outline-none"
+                  className="w-full p-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white transition-all"
                 />
+              </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-400 mb-2">
+                  Horário
+                </label>
                 <select
                   value={novoAgendamento.horario}
                   onChange={(e) =>
@@ -577,33 +704,38 @@ export default function AgendaBarbeiroPage() {
                       horario: e.target.value,
                     })
                   }
-                  className="p-3 rounded-xl bg-gray-900 border border-gray-800 focus:ring-2 focus:ring-yellow-500 outline-none"
+                  className="w-full p-3 rounded-lg bg-gray-800/80 border border-gray-700 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={
+                    !novoAgendamento.service_id ||
+                    !novoAgendamento.data ||
+                    horarios.length === 0
+                  }
                 >
-                  <option value="">-- Selecione o horário --</option>
-                  {horarios.map((h) => (
+                  <option value="" className="bg-gray-800">Selecione o horário</option>
+                  {horarios.map((h, i) => (
                     <option
-                      key={h}
-                      value={h}
-                      disabled={ocupados.includes(h)}
-                      style={{ color: ocupados.includes(h) ? "red" : "white" }}
+                      key={`${h.hora}-${i}`}
+                      value={h.hora}
+                      disabled={h.ocupado}
+                      className={h.ocupado ? "bg-gray-800 text-red-400" : "bg-gray-800"}
                     >
-                      {h} {ocupados.includes(h) ? "— Ocupado" : ""}
+                      {h.hora} {h.ocupado ? "— Ocupado" : "— Disponível"}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-gray-700 text-gray-200 hover:border-yellow-500 hover:text-yellow-400 transition"
+                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all duration-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSalvarAgendamento}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold hover:scale-[1.01] transition"
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 Salvar
               </button>
@@ -611,6 +743,30 @@ export default function AgendaBarbeiroPage() {
           </div>
         </div>
       )}
+
+      {/* Estilos customizados */}
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateX(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

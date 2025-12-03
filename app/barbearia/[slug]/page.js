@@ -24,6 +24,11 @@ export default function BarbeariaPublicPage() {
   const [msg, setMsg] = useState("");
 
   const [statusAberto, setStatusAberto] = useState(null);
+  
+  // Header scroll state
+  const [scrolled, setScrolled] = useState(false);
+  const [lastScroll, setLastScroll] = useState(0);
+  const [headerVisible, setHeaderVisible] = useState(true);
 
   // Detectar país do navegador
   useEffect(() => {
@@ -99,6 +104,30 @@ export default function BarbeariaPublicPage() {
     return () => clearInterval(interval);
   }, [slug, barbearia]);
 
+  // Header scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScroll = window.scrollY;
+      
+      // Detecta se rolou para baixo ou para cima
+      if (currentScroll > lastScroll && currentScroll > 80) {
+        setHeaderVisible(false); // Esconde ao rolar para baixo
+      } else {
+        setHeaderVisible(true); // Mostra ao rolar para cima
+      }
+      
+      setScrolled(currentScroll > 20);
+      setLastScroll(currentScroll);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScroll]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   // Salvar cliente
   const handleSalvarCliente = async (e) => {
     e.preventDefault();
@@ -159,8 +188,8 @@ export default function BarbeariaPublicPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-black flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block h-12 w-12 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-400 text-lg">Carregando barbearia...</p>
+          <div className="inline-block h-16 w-16 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin mb-4 drop-shadow-[0_0_20px_rgba(253,184,19,0.5)]"></div>
+          <p className="text-gray-300 text-lg font-medium">Carregando barbearia...</p>
         </div>
       </div>
     );
@@ -172,13 +201,41 @@ export default function BarbeariaPublicPage() {
 
   return (
     <div className="text-white bg-gradient-to-b from-neutral-950 via-neutral-900 to-black min-h-screen font-sans">
+      {/* HEADER FIXO */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          headerVisible ? "translate-y-0" : "-translate-y-full"
+        } ${
+          scrolled
+            ? "bg-black/90 backdrop-blur-2xl border-b border-yellow-500/20 shadow-lg shadow-yellow-500/10"
+            : "bg-gradient-to-b from-black/60 to-transparent backdrop-blur-sm"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center h-24 sm:h-28 lg:h-32">
+            {/* Logo */}
+            <button
+              onClick={scrollToTop}
+              className="flex items-center gap-2 sm:gap-3 hover:scale-105 transition-all duration-300 focus:outline-none group"
+            >
+              <img
+                src="/saloniq-logo.png"
+                alt="Saloniq"
+                className="h-16 sm:h-20 lg:h-28 w-auto drop-shadow-2xl group-hover:drop-shadow-[0_0_30px_rgba(253,184,19,0.5)]"
+              />
+            </button>
+          </div>
+        </div>
+      </header>
+
       {/* Background decorativo */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-600/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-yellow-500/8 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-amber-500/8 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-orange-500/5 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 pt-32 sm:pt-36 lg:pt-40">
         {/* GALERIA */}
         {fotos.length > 0 && (
           <div className="mb-8 sm:mb-12 animate-fade-in">
@@ -216,12 +273,12 @@ export default function BarbeariaPublicPage() {
             className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4"
             onClick={() => setLightbox(null)}
           >
-            <button
-              onClick={() => setLightbox(null)}
-              className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white hover:text-yellow-500 transition-colors text-2xl sm:text-3xl font-bold bg-black/50 rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center backdrop-blur-sm"
-            >
-              ×
-            </button>
+              <button
+                onClick={() => setLightbox(null)}
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white hover:text-yellow-400 transition-colors text-2xl sm:text-3xl font-bold bg-black/50 rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center backdrop-blur-sm hover:bg-black/70"
+              >
+                ×
+              </button>
             <img
               src={lightbox}
               alt="Foto ampliada"
@@ -236,7 +293,7 @@ export default function BarbeariaPublicPage() {
           <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl rounded-3xl p-6 sm:p-8 lg:p-10 border border-white/10 shadow-2xl">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="flex-1 space-y-3 sm:space-y-4">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent capitalize leading-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-6xl font-black bg-gradient-to-r from-yellow-300 via-yellow-500 to-amber-600 bg-clip-text text-transparent capitalize leading-tight drop-shadow-lg">
                   {barbearia.nome}
                 </h1>
                 
@@ -286,7 +343,7 @@ export default function BarbeariaPublicPage() {
               <div className="lg:ml-6">
                 <button
                   onClick={() => setShowModal(true)}
-                  className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500 hover:from-yellow-600 hover:via-yellow-700 hover:to-yellow-600 px-8 py-4 rounded-xl font-bold text-black shadow-lg shadow-yellow-500/25 transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/40 text-base sm:text-lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-yellow-400 via-yellow-500 to-amber-500 hover:from-yellow-500 hover:via-amber-500 hover:to-amber-600 px-10 py-5 rounded-2xl font-black text-black shadow-2xl shadow-yellow-500/40 transition-all duration-300 transform hover:scale-110 hover:shadow-yellow-500/60 text-lg sm:text-xl uppercase tracking-wide"
                 >
                   Marcar Agendamento
                 </button>
@@ -297,8 +354,8 @@ export default function BarbeariaPublicPage() {
 
         {/* SOBRE */}
         <div id="sobre" className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-          <h2 className="text-2xl sm:text-3xl font-bold text-yellow-500 mb-6 sm:mb-8 flex items-center gap-3">
-            <span className="h-1 w-12 bg-gradient-to-r from-yellow-500 to-transparent rounded-full"></span>
+          <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text mb-6 sm:mb-8 flex items-center gap-3">
+            <span className="h-1.5 w-16 bg-gradient-to-r from-yellow-500 via-amber-500 to-transparent rounded-full shadow-lg shadow-yellow-500/50"></span>
             Sobre
           </h2>
           <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl rounded-3xl p-6 sm:p-8 lg:p-10 border border-white/10 shadow-2xl">
@@ -339,11 +396,11 @@ export default function BarbeariaPublicPage() {
                     {barbearia.maps_url && (
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
                         <a
-                          href={barbearia.maps_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-white hover:text-yellow-400 transition-colors font-medium group/link"
-                        >
+                      href={barbearia.maps_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-white hover:text-yellow-400 transition-colors font-medium group/link"
+                    >
                           <svg className="w-5 h-5 group-hover/link:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -374,7 +431,7 @@ export default function BarbeariaPublicPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+              <h2 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent">
                 Identifique-se para agendar
               </h2>
               <button
@@ -457,7 +514,7 @@ export default function BarbeariaPublicPage() {
                 <button
                   type="submit"
                   disabled={salvando}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-bold shadow-lg shadow-yellow-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-black font-black shadow-lg shadow-yellow-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 uppercase tracking-wide"
                 >
                   {salvando ? (
                     <span className="flex items-center justify-center gap-2">
