@@ -75,7 +75,7 @@ export default function SubscriptionBanner() {
                 Período de Trial Ativo
               </h3>
               <p className="text-blue-200 text-sm mb-2">
-                Você está usando o Barberly gratuitamente! Restam {daysLeft} dias de trial.
+                Você está usando o Saloniq gratuitamente! Restam {daysLeft} dias de trial.
               </p>
               <p className="text-blue-300/80 text-xs">
                 Aproveite para explorar todos os recursos da plataforma.
@@ -97,7 +97,7 @@ export default function SubscriptionBanner() {
                 ⏰ Seu trial acaba em {daysLeft} {daysLeft === 1 ? "dia" : "dias"}!
               </h3>
               <p className="text-yellow-200 text-sm mb-3">
-                Continue aproveitando todos os recursos do Barberly. Assine agora e não perca seu progresso!
+                Continue aproveitando todos os recursos do Saloniq. Assine agora e não perca seu progresso!
               </p>
               <button
                 onClick={() => router.push("/assinatura")}
@@ -122,7 +122,7 @@ export default function SubscriptionBanner() {
                 ❌ Seu período de trial expirou
               </h3>
               <p className="text-red-200 text-sm mb-3">
-                Para continuar usando o Barberly e acessar todos os recursos, assine agora por apenas €20/mês.
+                Para continuar usando o Saloniq e acessar todos os recursos, assine agora por apenas €20/mês.
               </p>
               <button
                 onClick={() => router.push("/assinatura")}

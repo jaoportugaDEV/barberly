@@ -1,4 +1,4 @@
-# 📋 Changelog - Sistema de Pagamentos Barberly
+# 📋 Changelog - Sistema de Pagamentos Saloniq
 
 ## [1.0.0] - 2024-12-02
 
@@ -125,5 +125,5 @@
 
 **Versão atual**: 1.0.0  
 **Data de lançamento**: 02/12/2024  
-**Desenvolvido por**: Barberly Team
+**Desenvolvido por**: Saloniq Team
 

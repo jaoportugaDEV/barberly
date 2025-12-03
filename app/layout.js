@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Barberly - Gerencie seus agendamentos",
+  title: "Saloniq - Gerencie seus agendamentos",
   description: "Sistema de agendamentos profissional para barbearias, salões e esteticistas",
 };
 

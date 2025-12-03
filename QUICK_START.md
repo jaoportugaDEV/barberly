@@ -1,8 +1,8 @@
-# ⚡ Quick Start - Sistema de Pagamentos Barberly
+# ⚡ Quick Start - Sistema de Pagamentos Saloniq
 
 ## 🎯 O que foi feito?
 
-Integrei um **sistema completo de pagamentos com Stripe** no seu Barberly, incluindo:
+Integrei um **sistema completo de pagamentos com Stripe** no seu Saloniq, incluindo:
 
 ✅ **Trial gratuito de 7 dias** sem necessidade de cartão  
 ✅ **Assinatura mensal de €20** via Stripe  
@@ -24,7 +24,7 @@ Integrei um **sistema completo de pagamentos com Stripe** no seu Barberly, inclu
 
 1. No Stripe, vá em **Products** → **Add Product**
 2. Preencha:
-   - **Name**: `Barberly Premium`
+   - **Name**: `Saloniq Premium`
    - **Price**: `20.00 EUR`
    - **Billing**: `Monthly`
 3. Clique em **Save**

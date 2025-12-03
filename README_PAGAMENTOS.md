@@ -1,8 +1,8 @@
-# 💳 Sistema de Pagamentos - Barberly
+# 💳 Sistema de Pagamentos - Saloniq
 
 ## 📚 Documentação Completa
 
-Bem-vindo ao sistema de pagamentos integrado do Barberly! Escolha o guia adequado:
+Bem-vindo ao sistema de pagamentos integrado do Saloniq! Escolha o guia adequado:
 
 ---
 
@@ -240,7 +240,7 @@ Seu sistema de pagamentos está **100% funcional** e pronto para:
 
 ## 📞 Suporte
 
-Criado para o projeto Barberly  
+Criado para o projeto Saloniq  
 Data: 02/12/2024  
 Versão: 1.0.0
 

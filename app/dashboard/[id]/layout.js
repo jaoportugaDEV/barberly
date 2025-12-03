@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }) {
       >
         <div className="p-6 pb-4 border-b border-gray-900 flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Barberly</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Saloniq</p>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-400 bg-clip-text text-transparent">
               Funcionário
             </h1>
@@ -129,7 +129,7 @@ export default function DashboardLayout({ children }) {
           <Menu size={22} />
         </button>
         <div className="text-center">
-          <p className="text-xs tracking-[0.3em] text-gray-500 uppercase">Barberly</p>
+          <p className="text-xs tracking-[0.3em] text-gray-500 uppercase">Saloniq</p>
           <p className="text-lg font-semibold text-yellow-400">Funcionário</p>
         </div>
         <div className="w-10" />

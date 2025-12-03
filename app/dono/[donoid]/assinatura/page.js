@@ -517,7 +517,7 @@ export default function AssinaturaDonoPage() {
 
           {/* Benefícios */}
           <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm rounded-xl border border-gray-800 p-6 lg:p-8 shadow-xl">
-            <h3 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6">Por que assinar o Barberly?</h3>
+            <h3 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6">Por que assinar o Saloniq?</h3>
             <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">

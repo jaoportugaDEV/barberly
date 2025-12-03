@@ -3,7 +3,7 @@
 ═══════════════════════════════════════════════════════════════
 
 Olá! Implementei COMPLETAMENTE o sistema de pagamentos com Stripe
-no seu Barberly. Aqui está tudo o que foi feito:
+no seu Saloniq. Aqui está tudo o que foi feito:
 
 ───────────────────────────────────────────────────────────────
 ✅ FUNCIONALIDADES IMPLEMENTADAS

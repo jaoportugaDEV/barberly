@@ -118,14 +118,59 @@ export default function AssinaturaPage() {
     setLoading(true);
 
     try {
+      // Pega o token de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        alert("Você precisa estar logado para gerenciar a assinatura.");
+        router.push("/login");
+        return;
+      }
+
+      console.log("🔵 Acessando portal de gerenciamento...");
+      console.log("Token:", session.access_token ? "Presente" : "Ausente");
+      
       const response = await fetch("/api/stripe/portal", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        credentials: "include", // Garante que cookies sejam enviados
       });
 
-      const data = await response.json();
+      console.log("📊 Status da resposta:", response.status);
 
+      const data = await response.json();
+      console.log("📦 Dados recebidos:", data);
+
+      if (!response.ok) {
+        console.error("❌ Erro na API:", data);
+        alert(`Erro: ${data.error || 'Erro desconhecido'}\nDetalhes: ${data.details || 'Sem detalhes'}`);
+        return;
+      }
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      // Verifica se é uma conta de teste
+      if (data.isTestAccount) {
+        console.log("⚠️ Conta de teste detectada");
+        alert("Esta é uma conta de teste. Para gerenciar uma assinatura real, você precisa assinar primeiro.");
+        // Atualiza a página para mostrar as opções corretas
+        window.location.reload();
+        return;
+      }
+
+      // Redireciona para o portal do Stripe
       if (data.url) {
+        console.log("✅ Redirecionando para portal...");
         window.location.href = data.url;
+      } else {
+        console.error("❌ URL do portal não recebida");
+        alert("Erro: URL do portal não foi recebida.");
       }
     } catch (error) {
       console.error("Erro ao acessar portal:", error);
@@ -170,7 +215,7 @@ export default function AssinaturaPage() {
         {success && (
           <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
             <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
-            <p className="text-green-400">✅ Pagamento realizado com sucesso! Bem-vindo ao Barberly Premium.</p>
+            <p className="text-green-400">✅ Pagamento realizado com sucesso! Bem-vindo ao Saloniq Premium.</p>
           </div>
         )}
 
@@ -184,7 +229,7 @@ export default function AssinaturaPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 bg-clip-text text-transparent mb-4">
-            {isActive ? "Sua Assinatura" : "Assine o Barberly"}
+            {isActive ? "Sua Assinatura" : "Assine o Saloniq"}
           </h1>
           <p className="text-xl text-gray-300">
             {isActive 

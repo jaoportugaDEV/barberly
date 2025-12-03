@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import supabase from "@/lib/supabaseClient";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
-import { Calendar, Plus, Clock, User, Phone, Euro, CheckCircle2, Trash2, X, MessageCircle } from "lucide-react";
+import { Calendar, Plus, Clock, User, Phone, Euro, CheckCircle2, Trash2, X, MessageCircle, Filter } from "lucide-react";
 
 export default function AgendaDonoPage() {
   const [agendamentos, setAgendamentos] = useState([]);
@@ -14,6 +14,10 @@ export default function AgendaDonoPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalInfo, setModalInfo] = useState(null);
   const [donoId, setDonoId] = useState(null);
+  const [diaAtivo, setDiaAtivo] = useState(0);
+  const [barbeariaFiltro, setBarbeariaFiltro] = useState("");
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   const [novoAgendamento, setNovoAgendamento] = useState({
     client_name: "",
@@ -103,6 +107,7 @@ export default function AgendaDonoPage() {
     const { barbearia_id, data, service_id } = novoAgendamento;
     if (!barbearia_id || !data || !service_id) return;
 
+    // Buscar dados da barbearia
     const { data: barbearia } = await supabase
       .from("barbearias")
       .select("horario_abertura, horario_fechamento, intervalo_minutos")
@@ -110,12 +115,22 @@ export default function AgendaDonoPage() {
       .single();
     if (!barbearia) return;
 
+    // Buscar duração do serviço que está sendo agendado
+    const { data: servicoSelecionado } = await supabase
+      .from("services")
+      .select("duration_minutes")
+      .eq("id", service_id)
+      .single();
+
+    const duracaoNovoServico = servicoSelecionado?.duration_minutes || 30;
+
     const { horario_abertura, horario_fechamento, intervalo_minutos } =
       barbearia;
     const inicio = dayjs(`2000-01-01T${horario_abertura || "09:00"}`);
     const fim = dayjs(`2000-01-01T${horario_fechamento || "19:00"}`);
     const intervalo = intervalo_minutos || 15;
 
+    // Gerar todos os horários possíveis
     const horariosGerados = [];
     let atual = inicio;
     while (atual.isBefore(fim)) {
@@ -123,6 +138,7 @@ export default function AgendaDonoPage() {
       atual = atual.add(intervalo, "minute");
     }
 
+    // Buscar agendamentos existentes do dia
     const { data: agsOcupados } = await supabase
       .from("appointments")
       .select("starts_at, status, services(duration_minutes)")
@@ -131,20 +147,37 @@ export default function AgendaDonoPage() {
       .gte("starts_at", `${data}T00:00:00`)
       .lte("starts_at", `${data}T23:59:59`);
 
-    const ocupados = new Set();
-
-    (agsOcupados || []).forEach((ag) => {
-      const inicioAg = dayjs(ag.starts_at);
-      const duracao = ag.services?.duration_minutes || 30;
-      const blocos = Math.ceil(duracao / intervalo) + 1;
-      for (let i = 0; i < blocos; i++) {
-        ocupados.add(inicioAg.add(i * intervalo, "minute").format("HH:mm"));
+    // Função para verificar conflito considerando duração completa
+    const verificaConflito = (horarioTeste) => {
+      const inicioNovo = dayjs(`${data}T${horarioTeste}`);
+      const fimNovo = inicioNovo.add(duracaoNovoServico, "minute");
+      
+      // Verificar se ultrapassa horário de fechamento
+      const horarioFechamento = dayjs(`${data}T${horario_fechamento || "19:00"}`);
+      if (fimNovo.isAfter(horarioFechamento)) {
+        return true; // Ocupado se ultrapassar horário de fechamento
       }
-    });
+      
+      // Verificar conflito com agendamentos existentes
+      for (const ag of agsOcupados || []) {
+        const inicioExistente = dayjs(ag.starts_at);
+        const duracaoExistente = ag.services?.duration_minutes || 30;
+        const fimExistente = inicioExistente.add(duracaoExistente, "minute");
+        
+        // Verifica se há sobreposição de horários
+        // Conflito ocorre se: novo começa antes do existente terminar E novo termina depois do existente começar
+        if (inicioNovo.isBefore(fimExistente) && fimNovo.isAfter(inicioExistente)) {
+          return true; // Há conflito
+        }
+      }
+      
+      return false; // Sem conflito
+    };
 
+    // Aplicar validação em cada horário
     const lista = horariosGerados.map((hora) => ({
       hora,
-      ocupado: ocupados.has(hora),
+      ocupado: verificaConflito(hora),
     }));
 
     setHorarios(lista);
@@ -243,137 +276,245 @@ export default function AgendaDonoPage() {
 
   // 📅 Dias da semana
   const diasDaSemana = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const dia = dayjs().locale("pt-br").add(i, "day");
     diasDaSemana.push({
       label: dia.format("dddd, DD/MM"),
+      labelCurto: dia.format("ddd DD/MM"),
+      diaNome: dia.format("dddd"),
+      diaNumero: dia.format("DD/MM"),
       valor: dia.format("YYYY-MM-DD"),
     });
   }
 
+  // 🔍 Filtrar agendamentos
+  const agendamentosFiltrados = agendamentos.filter((ag) => {
+    if (barbeariaFiltro && ag.barbearia_id !== barbeariaFiltro) return false;
+    return true;
+  });
+
+  // 📊 Contar agendamentos por dia
+  const contagemPorDia = diasDaSemana.map((dia) => {
+    return agendamentosFiltrados.filter((a) => a.starts_at.split("T")[0] === dia.valor).length;
+  });
+
+  // 👆 Handlers de swipe
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current - touchEndX.current > 75) {
+      // Swipe left - próximo dia
+      if (diaAtivo < diasDaSemana.length - 1) {
+        setDiaAtivo(diaAtivo + 1);
+      }
+    }
+    if (touchStartX.current - touchEndX.current < -75) {
+      // Swipe right - dia anterior
+      if (diaAtivo > 0) {
+        setDiaAtivo(diaAtivo - 1);
+      }
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6 lg:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-2">
-              Agenda do Dono
-            </h1>
-            <p className="text-gray-400 text-sm lg:text-base">
-              Gerencie todos os agendamentos das suas barbearias
-            </p>
+    <div className="max-w-7xl mx-auto pb-24">
+      {/* Header com Filtro */}
+      <div className="mb-4 lg:mb-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-1">
+                Agenda do Dono
+              </h1>
+              <p className="text-gray-400 text-xs lg:text-base">
+                Gerencie todos os agendamentos
+              </p>
+            </div>
+            {/* Botão Desktop */}
+            <button
+              onClick={() => {
+                setNovoAgendamento({
+                  client_name: "",
+                  barbearia_id: "",
+                  service_id: "",
+                  data: "",
+                  horario: "",
+                });
+                setServicos([]);
+                setHorarios([]);
+                setModalOpen(true);
+              }}
+              className="hidden lg:flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 px-5 py-3 rounded-xl font-semibold text-black shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              <Plus size={20} />
+              Novo Agendamento
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setNovoAgendamento({
-                client_name: "",
-                barbearia_id: "",
-                service_id: "",
-                data: "",
-                horario: "",
-              });
-              setServicos([]);
-              setHorarios([]);
-              setModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 px-5 py-3 rounded-xl font-semibold text-black shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
-          >
-            <Plus size={20} />
-            Novo Agendamento
-          </button>
+
+          {/* Filtro por Barbearia */}
+          {barbearias.length > 1 && (
+            <div className="flex items-center gap-2 bg-gray-900/50 p-3 rounded-xl border border-gray-800">
+              <Filter className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+              <select
+                value={barbeariaFiltro}
+                onChange={(e) => setBarbeariaFiltro(e.target.value)}
+                className="flex-1 bg-transparent text-white text-sm outline-none cursor-pointer"
+              >
+                <option value="" className="bg-gray-800">Todas as barbearias</option>
+                {barbearias.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-gray-800">
+                    {b.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Grade de dias */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
-        {diasDaSemana.map((dia) => {
-          const ags = agendamentos.filter(
+      {/* Tabs Horizontais */}
+      <div className="mb-4 overflow-x-auto pb-2 hide-scrollbar">
+        <div className="flex gap-2 min-w-max lg:grid lg:grid-cols-7">
+          {diasDaSemana.map((dia, index) => {
+            const isToday = dia.valor === dayjs().format("YYYY-MM-DD");
+            const isAtivo = diaAtivo === index;
+            const qtd = contagemPorDia[index];
+            return (
+              <button
+                key={dia.valor}
+                onClick={() => setDiaAtivo(index)}
+                className={`flex-shrink-0 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 relative ${
+                  isAtivo
+                    ? "bg-gradient-to-r from-yellow-600 to-yellow-500 text-black shadow-lg scale-105"
+                    : isToday
+                    ? "bg-gray-800/80 text-yellow-400 border border-yellow-600/30"
+                    : "bg-gray-800/50 text-gray-400 border border-gray-700/50 hover:border-yellow-600/30 hover:text-yellow-400"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="capitalize text-xs lg:text-sm">
+                    {dia.diaNome.substring(0, 3)}
+                  </span>
+                  <span className="font-bold">{dia.diaNumero.split("/")[0]}</span>
+                  {qtd > 0 && (
+                    <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${
+                      isAtivo ? "bg-black text-yellow-500" : "bg-yellow-500 text-black"
+                    }`}>
+                      {qtd}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Área com Swipe */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-[400px]"
+      >
+        {/* Conteúdo do Dia Ativo */}
+        {diasDaSemana.map((dia, index) => {
+          if (index !== diaAtivo) return null;
+          
+          const ags = agendamentosFiltrados.filter(
             (a) => a.starts_at.split("T")[0] === dia.valor
           );
           const isToday = dia.valor === dayjs().format("YYYY-MM-DD");
+          
           return (
-            <div
-              key={dia.valor}
-              className={`bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-4 lg:p-5 rounded-xl border shadow-xl hover:shadow-2xl transition-all duration-300 ${
-                isToday
-                  ? "border-yellow-600/50 ring-2 ring-yellow-600/20"
-                  : "border-gray-800"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="w-4 h-4 text-yellow-500" />
-                <h2
-                  className={`font-bold capitalize ${
-                    isToday
-                      ? "text-yellow-400 text-lg"
-                      : "text-yellow-400/90"
-                  }`}
-                >
-                  {dia.label.split(",")[0]}
-                </h2>
+            <div key={dia.valor} className="animate-fadeIn">
+              {/* Cabeçalho do Dia */}
+              <div className={`bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-4 rounded-t-xl border-t border-x ${
+                isToday ? "border-yellow-600/50" : "border-gray-800"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-yellow-500" />
+                    <div>
+                      <h2 className="font-bold capitalize text-yellow-400 text-lg">
+                        {dia.diaNome}
+                      </h2>
+                      <p className="text-gray-400 text-xs">{dia.diaNumero}</p>
+                    </div>
+                  </div>
+                  {isToday && (
+                    <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-semibold rounded-full border border-yellow-500/30">
+                      Hoje
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-gray-400 text-xs mb-4 capitalize">
-                {dia.label.split(",")[1]?.trim()}
-              </p>
 
-              <div className="space-y-2 max-h-[500px] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {/* Lista de Agendamentos */}
+              <div className={`bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm p-4 rounded-b-xl border-b border-x space-y-3 ${
+                isToday ? "border-yellow-600/50" : "border-gray-800"
+              }`}>
                 {ags.length > 0 ? (
                   ags.map((a) => (
                     <div
                       key={a.id}
                       onClick={() => setModalInfo(a)}
-                      className={`bg-gray-800/60 p-3 rounded-lg border cursor-pointer hover:border-yellow-500/50 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                      className={`bg-gray-800/60 p-3 rounded-xl border cursor-pointer hover:border-yellow-500/50 transition-all duration-200 hover:shadow-lg active:scale-[0.98] ${
                         a.status === "concluido"
                           ? "border-green-500/30 bg-green-500/5"
                           : "border-gray-700/50"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <User className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                            <p className="font-semibold text-white text-sm truncate">
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                            <p className="font-bold text-white text-base truncate">
                               {a.client_name}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Clock className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <p className="text-xs text-gray-400">
-                              {dayjs(a.starts_at).format("HH:mm")}
-                            </p>
+                          <div className="flex items-center gap-3 text-sm text-gray-400">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="font-medium">{dayjs(a.starts_at).format("HH:mm")}</span>
+                            </div>
+                            <span className="text-gray-600">•</span>
+                            <span className="truncate">{a.services?.name || "Serviço"}</span>
                           </div>
-                          <p className="text-xs text-gray-400 truncate">
-                            {a.services?.name || "Serviço"}
-                          </p>
                         </div>
 
                         {a.status === "concluido" ? (
-                          <span className="flex items-center gap-1 text-green-400 text-xs font-semibold whitespace-nowrap">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span className="hidden sm:inline">Concluído</span>
-                          </span>
+                          <div className="flex items-center gap-1.5 text-green-400 text-sm font-semibold whitespace-nowrap bg-green-500/10 px-3 py-1.5 rounded-lg border border-green-500/20">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Concluído</span>
+                          </div>
                         ) : (
-                          <div className="flex gap-1 flex-shrink-0">
+                          <div className="flex gap-2 flex-shrink-0">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleConcluirAgendamento(a);
                               }}
-                              className="bg-green-600/80 hover:bg-green-600 text-white p-1.5 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                              className="bg-green-600/80 hover:bg-green-600 text-white p-2 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
                               title="Concluir"
                             >
-                              <CheckCircle2 className="w-3 h-3" />
+                              <CheckCircle2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleExcluirAgendamento(a.id);
                               }}
-                              className="bg-red-600/80 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                              className="bg-red-600/80 hover:bg-red-600 text-white p-2 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
                               title="Excluir"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         )}
@@ -381,9 +522,10 @@ export default function AgendaDonoPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="bg-gray-800/30 rounded-lg p-6 text-center border border-gray-800/50">
-                    <Calendar className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-gray-500 text-xs">Sem agendamentos</p>
+                  <div className="bg-gray-800/30 rounded-xl p-12 text-center border border-gray-800/50">
+                    <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm font-medium">Sem agendamentos neste dia</p>
+                    <p className="text-gray-600 text-xs mt-1">Deslize para ver outros dias</p>
                   </div>
                 )}
               </div>
@@ -391,6 +533,26 @@ export default function AgendaDonoPage() {
           );
         })}
       </div>
+
+      {/* FAB - Floating Action Button (Mobile) */}
+      <button
+        onClick={() => {
+          setNovoAgendamento({
+            client_name: "",
+            barbearia_id: "",
+            service_id: "",
+            data: "",
+            horario: "",
+          });
+          setServicos([]);
+          setHorarios([]);
+          setModalOpen(true);
+        }}
+        className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-black rounded-full shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center z-40"
+        aria-label="Novo Agendamento"
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </button>
 
       {/* 🔹 Modal de detalhes com botão WhatsApp */}
       {modalInfo && (
@@ -662,6 +824,30 @@ export default function AgendaDonoPage() {
           </div>
         </div>
       )}
+
+      {/* Estilos customizados */}
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateX(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function BarbeariasPage() {
       .select("id, nome, endereco, telefone, cidade, slug")
       .eq("dono_id", auth.user.id);
 
-    if (error) setMsg("❌ Erro ao carregar barbearias");
+    if (error) setMsg("❌ Erro ao carregar salões");
     else setBarbearias(data || []);
     setLoading(false);
   };
@@ -111,7 +111,7 @@ export default function BarbeariasPage() {
     } else {
       setMsg(
         novoValor
-          ? "✅ Modo colaborador ativado. Escolha a barbearia."
+          ? "✅ Modo colaborador ativado. Escolha o salão."
           : "⚠️ Modo colaborador desativado."
       );
     }
@@ -128,9 +128,9 @@ export default function BarbeariasPage() {
       .eq("id", userId);
 
     if (error) {
-      setMsg("❌ Erro ao definir barbearia colaboradora.");
+      setMsg("❌ Erro ao definir salão colaborador.");
     } else {
-      setMsg("✅ Barbearia definida como colaboradora!");
+      setMsg("✅ Salão definido como colaborador!");
     }
   };
 
@@ -157,9 +157,9 @@ export default function BarbeariasPage() {
         .eq("id", editingId)
         .eq("dono_id", auth.user.id);
 
-      if (error) setMsg("❌ Erro ao atualizar barbearia.");
+      if (error) setMsg("❌ Erro ao atualizar salão.");
       else {
-        setMsg("✅ Barbearia atualizada!");
+        setMsg("✅ Salão atualizado!");
         resetForm();
         fetchBarbearias();
       }
@@ -187,9 +187,9 @@ export default function BarbeariasPage() {
 
       if (error) {
         console.error(error);
-        setMsg("❌ Erro ao criar barbearia.");
+        setMsg("❌ Erro ao criar salão.");
       } else {
-        setMsg("✅ Barbearia criada com sucesso!");
+        setMsg("✅ Salão criado com sucesso!");
         resetForm();
         fetchBarbearias();
       }
@@ -198,13 +198,13 @@ export default function BarbeariasPage() {
 
   // 🔹 Excluir barbearia
   const handleDelete = async (id) => {
-    if (!confirm("Tem certeza que deseja excluir esta barbearia?")) return;
+    if (!confirm("Tem certeza que deseja excluir este salão?")) return;
 
     const { error } = await supabase.from("barbearias").delete().eq("id", id);
 
-    if (error) setMsg("❌ Erro ao excluir barbearia.");
+    if (error) setMsg("❌ Erro ao excluir salão.");
     else {
-      setMsg("✅ Barbearia excluída!");
+      setMsg("✅ Salão excluído!");
       fetchBarbearias();
     }
   };
@@ -224,10 +224,10 @@ export default function BarbeariasPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-2">
-              Minhas Barbearias
+              Meus Salões
             </h1>
             <p className="text-gray-400 text-sm lg:text-base">
-              Gerencie todas as suas barbearias em um só lugar
+              Gerencie todos os seus salões em um só lugar
             </p>
           </div>
 
@@ -259,7 +259,7 @@ export default function BarbeariasPage() {
                     onChange={handleSelecionarBarbearia}
                     className="bg-gray-800/80 border border-gray-700 text-white px-4 py-2 rounded-lg text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all"
                   >
-                    <option value="">Selecionar barbearia</option>
+                    <option value="">Selecionar salão</option>
                     {barbearias.map((b) => (
                       <option key={b.id} value={b.id} className="bg-gray-800">
                         {b.nome}
@@ -303,7 +303,7 @@ export default function BarbeariasPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-400 mb-2">
-              Nome da barbearia
+              Nome do salão
             </label>
             <div className="relative">
               <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -378,7 +378,7 @@ export default function BarbeariasPage() {
           ) : (
             <>
               <Plus className="w-5 h-5" />
-              Adicionar barbearia
+              Adicionar salão
             </>
           )}
         </button>
@@ -389,17 +389,17 @@ export default function BarbeariasPage() {
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-12 h-12 text-yellow-500 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Carregando barbearias...</p>
+            <p className="text-gray-400">Carregando salões...</p>
           </div>
         </div>
       ) : barbearias.length === 0 ? (
         <div className="bg-gradient-to-br from-gray-900/50 to-gray-950/50 border border-gray-800 rounded-xl p-12 text-center">
           <Building2 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 text-lg mb-2">
-            Nenhuma barbearia cadastrada ainda.
+            Nenhum salão cadastrado ainda.
           </p>
           <p className="text-gray-500 text-sm">
-            Adicione sua primeira barbearia usando o formulário acima.
+            Adicione seu primeiro salão usando o formulário acima.
           </p>
         </div>
       ) : (

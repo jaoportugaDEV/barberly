@@ -1,4 +1,4 @@
-# 🎯 Fluxo de Onboarding Completo - Barberly
+# 🎯 Fluxo de Onboarding Completo - Saloniq
 
 ## 📋 Fluxo Atualizado
 

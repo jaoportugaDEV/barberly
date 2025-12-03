@@ -1,8 +1,8 @@
-# 🎯 Guia de Configuração do Stripe - Barberly
+# 🎯 Guia de Configuração do Stripe - Saloniq
 
 ## 📋 Visão Geral
 
-Este guia vai ajudá-lo a configurar completamente o sistema de pagamentos com Stripe no Barberly, incluindo:
+Este guia vai ajudá-lo a configurar completamente o sistema de pagamentos com Stripe no Saloniq, incluindo:
 - ✅ Trial gratuito de 7 dias
 - ✅ Assinatura mensal de €20
 - ✅ Webhooks para sincronização automática
@@ -25,7 +25,7 @@ Este guia vai ajudá-lo a configurar completamente o sistema de pagamentos com S
 
 1. No painel do Stripe, vá em **Products** → **Add Product**
 2. Preencha:
-   - **Name**: `Barberly Premium`
+   - **Name**: `Saloniq Premium`
    - **Description**: `Acesso completo à plataforma de gestão`
 3. Em **Pricing**:
    - **Price**: `20.00`

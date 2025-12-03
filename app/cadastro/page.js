@@ -11,11 +11,28 @@ export default function CadastroPage() {
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastAttempt, setLastAttempt] = useState(0);
   const router = useRouter();
 
   const handleCadastro = async (e) => {
     e.preventDefault();
+    
+    // 🔹 Previne duplo-submit se já estiver carregando
+    if (loading) {
+      console.log("⚠️ Requisição já em andamento...");
+      return;
+    }
+
     setError("");
+
+    // 🔹 Previne múltiplas requisições em curto espaço de tempo
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastAttempt;
+    
+    if (timeSinceLastAttempt < 3000 && lastAttempt > 0) {
+      setError("⏱️ Por favor, aguarde alguns segundos antes de tentar novamente.");
+      return;
+    }
 
     // Validações
     if (senha.length < 6) {
@@ -28,6 +45,7 @@ export default function CadastroPage() {
       return;
     }
 
+    setLastAttempt(now);
     setLoading(true);
 
     try {
@@ -46,6 +64,13 @@ export default function CadastroPage() {
 
       if (signUpError) {
         console.error("❌ Erro ao criar conta:", signUpError);
+        
+        // 🔹 Tratamento específico para rate limit
+        if (signUpError.message?.includes("rate limit") || signUpError.status === 429) {
+          router.push("/rate-limit");
+          return;
+        }
+        
         setError(signUpError.message || "Erro ao criar conta.");
         return;
       }
@@ -120,7 +145,7 @@ export default function CadastroPage() {
                 <CalendarCheck className="w-7 h-7 sm:w-8 sm:h-8 text-black" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 bg-clip-text text-transparent mb-1 sm:mb-2">
-                Barberly
+                Saloniq
               </h1>
               <p className="text-gray-400 text-xs sm:text-sm px-2">Gerencie seus agendamentos com estilo</p>
             </div>

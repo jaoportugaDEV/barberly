@@ -8,7 +8,19 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthAndRedirect();
+    let isMounted = true;
+    
+    const checkAuth = async () => {
+      if (isMounted) {
+        await checkAuthAndRedirect();
+      }
+    };
+    
+    checkAuth();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const checkAuthAndRedirect = async () => {
@@ -59,7 +71,15 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error("Erro ao verificar autenticação:", error);
-      router.push("/login");
+      
+      // 🔹 Não redireciona imediatamente se for rate limit
+      if (error?.message?.includes("rate limit") || error?.status === 429) {
+        console.warn("⚠️ Rate limit atingido. Aguarde alguns minutos.");
+        // Espera 5 segundos antes de tentar redirecionar
+        setTimeout(() => router.push("/login"), 5000);
+      } else {
+        router.push("/login");
+      }
     }
   };
 

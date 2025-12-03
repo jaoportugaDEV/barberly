@@ -116,7 +116,7 @@ export default function TrialPage() {
             <Sparkles className="w-10 h-10 text-black" />
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 bg-clip-text text-transparent mb-4">
-            Bem-vindo ao Barberly
+            Bem-vindo ao Saloniq
           </h1>
           <p className="text-xl text-gray-300">
             Escolha como deseja começar
@@ -232,7 +232,7 @@ export default function TrialPage() {
         {/* Features Section */}
         <div className="mt-16 bg-gray-900/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-800">
           <h3 className="text-2xl font-bold text-white text-center mb-8">
-            Tudo incluído no Barberly
+            Tudo incluído no Saloniq
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex items-start gap-4">

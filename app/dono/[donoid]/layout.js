@@ -29,7 +29,7 @@ export default function DonoLayout({ children }) {
   const params = useParams();
   const [user, setUser] = useState(null);
   const [openMenus, setOpenMenus] = useState({
-    estoque: true,
+    estoque: false,
     vendas: false,
     financeiro: false,
   });
@@ -103,7 +103,7 @@ export default function DonoLayout({ children }) {
         <div className="flex-shrink-0 p-6 pb-4 border-b border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
-              Barberly Dono
+              Saloniq Dono
             </h1>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -296,7 +296,7 @@ export default function DonoLayout({ children }) {
           <Menu size={24} className="text-yellow-500" />
         </button>
         <h1 className="text-xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent">
-          Barberly Dono
+          Saloniq Dono
         </h1>
         <div className="w-10" /> {/* Spacer para centralizar */}
       </div>
